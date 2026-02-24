@@ -1,0 +1,22 @@
+package schema
+
+import (
+	"entgo.io/ent"
+	"entgo.io/ent/schema/field"
+)
+
+type User struct {
+	ent.Schema
+}
+
+func (User) Fields() []ent.Field {
+	return []ent.Field{
+		field.String("id").Unique().Immutable(),
+		field.String("email").Unique(),
+		field.String("name"),
+		field.String("password").Sensitive(),
+		field.Bool("active").Default(true),
+		field.Time("created_at").Immutable(),
+		field.Time("updated_at"),
+	}
+}
