@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
 	_ "github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 
 	"pruebas_doc/ent"
 	"pruebas_doc/internal/api"
@@ -18,6 +19,9 @@ import (
 )
 
 func main() {
+	if err := godotenv.Load(); err != nil {
+        log.Println("No .env file found")
+    }
 	dbHost := os.Getenv("DB_HOST")
 	if dbHost == "" {
 		dbHost = "localhost"
@@ -28,7 +32,7 @@ func main() {
 	}
 	dbUser := os.Getenv("DB_USER")
 	if dbUser == "" {
-		dbUser = "root"
+		dbUser = "rnonet"
 	}
 	dbPass := os.Getenv("DB_PASSWORD")
 	if dbPass == "" {

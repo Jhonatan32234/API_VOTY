@@ -115,3 +115,22 @@ func (m *AuthModel) Login(ctx context.Context, req LoginRequest) (*AuthResponse,
 		},
 	}, nil
 }
+
+func (m *AuthModel) GetUserByID(ctx context.Context, id string) (*UserResponse, error) {
+	u, err := m.client.User.Query().
+		Where(user.ID(id)).
+		Only(ctx)
+	
+	if err != nil {
+		return nil, err
+	}
+
+	return &UserResponse{
+		ID:        u.ID,
+		Email:     u.Email,
+		Name:      u.Name,
+		Active:    u.Active,
+		CreatedAt: u.CreatedAt,
+		UpdatedAt: u.UpdatedAt,
+	}, nil
+}
