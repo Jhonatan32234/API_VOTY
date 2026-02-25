@@ -6,5 +6,14 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Poll is the predicate function for poll builders.
+type Poll func(*sql.Selector)
+
+// PollOption is the predicate function for polloption builders.
+type PollOption func(*sql.Selector)
+
 // User is the predicate function for user builders.
 type User func(*sql.Selector)
+
+// Vote is the predicate function for vote builders.
+type Vote func(*sql.Selector)

@@ -6,7 +6,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"pruebas_doc/ent/poll"
+	"pruebas_doc/ent/polloption"
 	"pruebas_doc/ent/user"
+	"pruebas_doc/ent/vote"
 	"reflect"
 	"sync"
 
@@ -73,7 +76,10 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
-			user.Table: user.ValidColumn,
+			poll.Table:       poll.ValidColumn,
+			polloption.Table: polloption.ValidColumn,
+			user.Table:       user.ValidColumn,
+			vote.Table:       vote.ValidColumn,
 		})
 	})
 	return columnCheck(t, c)

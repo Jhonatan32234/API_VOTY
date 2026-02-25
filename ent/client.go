@@ -11,11 +11,15 @@ import (
 
 	"pruebas_doc/ent/migrate"
 
+	"pruebas_doc/ent/poll"
+	"pruebas_doc/ent/polloption"
 	"pruebas_doc/ent/user"
+	"pruebas_doc/ent/vote"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 // Client is the client that holds all ent builders.
@@ -23,8 +27,14 @@ type Client struct {
 	config
 	// Schema is the client for creating, migrating and dropping schema.
 	Schema *migrate.Schema
+	// Poll is the client for interacting with the Poll builders.
+	Poll *PollClient
+	// PollOption is the client for interacting with the PollOption builders.
+	PollOption *PollOptionClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
+	// Vote is the client for interacting with the Vote builders.
+	Vote *VoteClient
 }
 
 // NewClient creates a new client configured with the given options.
@@ -36,7 +46,10 @@ func NewClient(opts ...Option) *Client {
 
 func (c *Client) init() {
 	c.Schema = migrate.NewSchema(c.driver)
+	c.Poll = NewPollClient(c.config)
+	c.PollOption = NewPollOptionClient(c.config)
 	c.User = NewUserClient(c.config)
+	c.Vote = NewVoteClient(c.config)
 }
 
 type (
@@ -127,9 +140,12 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 	cfg := c.config
 	cfg.driver = tx
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		User:   NewUserClient(cfg),
+		ctx:        ctx,
+		config:     cfg,
+		Poll:       NewPollClient(cfg),
+		PollOption: NewPollOptionClient(cfg),
+		User:       NewUserClient(cfg),
+		Vote:       NewVoteClient(cfg),
 	}, nil
 }
 
@@ -147,16 +163,19 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 	cfg := c.config
 	cfg.driver = &txDriver{tx: tx, drv: c.driver}
 	return &Tx{
-		ctx:    ctx,
-		config: cfg,
-		User:   NewUserClient(cfg),
+		ctx:        ctx,
+		config:     cfg,
+		Poll:       NewPollClient(cfg),
+		PollOption: NewPollOptionClient(cfg),
+		User:       NewUserClient(cfg),
+		Vote:       NewVoteClient(cfg),
 	}, nil
 }
 
 // Debug returns a new debug-client. It's used to get verbose logging on specific operations.
 //
 //	client.Debug().
-//		User.
+//		Poll.
 //		Query().
 //		Count(ctx)
 func (c *Client) Debug() *Client {
@@ -178,22 +197,364 @@ func (c *Client) Close() error {
 // Use adds the mutation hooks to all the entity clients.
 // In order to add hooks to a specific client, call: `client.Node.Use(...)`.
 func (c *Client) Use(hooks ...Hook) {
+	c.Poll.Use(hooks...)
+	c.PollOption.Use(hooks...)
 	c.User.Use(hooks...)
+	c.Vote.Use(hooks...)
 }
 
 // Intercept adds the query interceptors to all the entity clients.
 // In order to add interceptors to a specific client, call: `client.Node.Intercept(...)`.
 func (c *Client) Intercept(interceptors ...Interceptor) {
+	c.Poll.Intercept(interceptors...)
+	c.PollOption.Intercept(interceptors...)
 	c.User.Intercept(interceptors...)
+	c.Vote.Intercept(interceptors...)
 }
 
 // Mutate implements the ent.Mutator interface.
 func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 	switch m := m.(type) {
+	case *PollMutation:
+		return c.Poll.mutate(ctx, m)
+	case *PollOptionMutation:
+		return c.PollOption.mutate(ctx, m)
 	case *UserMutation:
 		return c.User.mutate(ctx, m)
+	case *VoteMutation:
+		return c.Vote.mutate(ctx, m)
 	default:
 		return nil, fmt.Errorf("ent: unknown mutation type %T", m)
+	}
+}
+
+// PollClient is a client for the Poll schema.
+type PollClient struct {
+	config
+}
+
+// NewPollClient returns a client for the Poll from the given config.
+func NewPollClient(c config) *PollClient {
+	return &PollClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `poll.Hooks(f(g(h())))`.
+func (c *PollClient) Use(hooks ...Hook) {
+	c.hooks.Poll = append(c.hooks.Poll, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `poll.Intercept(f(g(h())))`.
+func (c *PollClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Poll = append(c.inters.Poll, interceptors...)
+}
+
+// Create returns a builder for creating a Poll entity.
+func (c *PollClient) Create() *PollCreate {
+	mutation := newPollMutation(c.config, OpCreate)
+	return &PollCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Poll entities.
+func (c *PollClient) CreateBulk(builders ...*PollCreate) *PollCreateBulk {
+	return &PollCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PollClient) MapCreateBulk(slice any, setFunc func(*PollCreate, int)) *PollCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PollCreateBulk{err: fmt.Errorf("calling to PollClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PollCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PollCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Poll.
+func (c *PollClient) Update() *PollUpdate {
+	mutation := newPollMutation(c.config, OpUpdate)
+	return &PollUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PollClient) UpdateOne(_m *Poll) *PollUpdateOne {
+	mutation := newPollMutation(c.config, OpUpdateOne, withPoll(_m))
+	return &PollUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PollClient) UpdateOneID(id int) *PollUpdateOne {
+	mutation := newPollMutation(c.config, OpUpdateOne, withPollID(id))
+	return &PollUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Poll.
+func (c *PollClient) Delete() *PollDelete {
+	mutation := newPollMutation(c.config, OpDelete)
+	return &PollDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PollClient) DeleteOne(_m *Poll) *PollDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PollClient) DeleteOneID(id int) *PollDeleteOne {
+	builder := c.Delete().Where(poll.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PollDeleteOne{builder}
+}
+
+// Query returns a query builder for Poll.
+func (c *PollClient) Query() *PollQuery {
+	return &PollQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePoll},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Poll entity by its id.
+func (c *PollClient) Get(ctx context.Context, id int) (*Poll, error) {
+	return c.Query().Where(poll.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PollClient) GetX(ctx context.Context, id int) *Poll {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryOptions queries the options edge of a Poll.
+func (c *PollClient) QueryOptions(_m *Poll) *PollOptionQuery {
+	query := (&PollOptionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(poll.Table, poll.FieldID, id),
+			sqlgraph.To(polloption.Table, polloption.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, poll.OptionsTable, poll.OptionsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryVotes queries the votes edge of a Poll.
+func (c *PollClient) QueryVotes(_m *Poll) *VoteQuery {
+	query := (&VoteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(poll.Table, poll.FieldID, id),
+			sqlgraph.To(vote.Table, vote.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, poll.VotesTable, poll.VotesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PollClient) Hooks() []Hook {
+	return c.hooks.Poll
+}
+
+// Interceptors returns the client interceptors.
+func (c *PollClient) Interceptors() []Interceptor {
+	return c.inters.Poll
+}
+
+func (c *PollClient) mutate(ctx context.Context, m *PollMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PollCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PollUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PollUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PollDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Poll mutation op: %q", m.Op())
+	}
+}
+
+// PollOptionClient is a client for the PollOption schema.
+type PollOptionClient struct {
+	config
+}
+
+// NewPollOptionClient returns a client for the PollOption from the given config.
+func NewPollOptionClient(c config) *PollOptionClient {
+	return &PollOptionClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `polloption.Hooks(f(g(h())))`.
+func (c *PollOptionClient) Use(hooks ...Hook) {
+	c.hooks.PollOption = append(c.hooks.PollOption, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `polloption.Intercept(f(g(h())))`.
+func (c *PollOptionClient) Intercept(interceptors ...Interceptor) {
+	c.inters.PollOption = append(c.inters.PollOption, interceptors...)
+}
+
+// Create returns a builder for creating a PollOption entity.
+func (c *PollOptionClient) Create() *PollOptionCreate {
+	mutation := newPollOptionMutation(c.config, OpCreate)
+	return &PollOptionCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of PollOption entities.
+func (c *PollOptionClient) CreateBulk(builders ...*PollOptionCreate) *PollOptionCreateBulk {
+	return &PollOptionCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *PollOptionClient) MapCreateBulk(slice any, setFunc func(*PollOptionCreate, int)) *PollOptionCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &PollOptionCreateBulk{err: fmt.Errorf("calling to PollOptionClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*PollOptionCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &PollOptionCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for PollOption.
+func (c *PollOptionClient) Update() *PollOptionUpdate {
+	mutation := newPollOptionMutation(c.config, OpUpdate)
+	return &PollOptionUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *PollOptionClient) UpdateOne(_m *PollOption) *PollOptionUpdateOne {
+	mutation := newPollOptionMutation(c.config, OpUpdateOne, withPollOption(_m))
+	return &PollOptionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *PollOptionClient) UpdateOneID(id int) *PollOptionUpdateOne {
+	mutation := newPollOptionMutation(c.config, OpUpdateOne, withPollOptionID(id))
+	return &PollOptionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for PollOption.
+func (c *PollOptionClient) Delete() *PollOptionDelete {
+	mutation := newPollOptionMutation(c.config, OpDelete)
+	return &PollOptionDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *PollOptionClient) DeleteOne(_m *PollOption) *PollOptionDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *PollOptionClient) DeleteOneID(id int) *PollOptionDeleteOne {
+	builder := c.Delete().Where(polloption.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &PollOptionDeleteOne{builder}
+}
+
+// Query returns a query builder for PollOption.
+func (c *PollOptionClient) Query() *PollOptionQuery {
+	return &PollOptionQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypePollOption},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a PollOption entity by its id.
+func (c *PollOptionClient) Get(ctx context.Context, id int) (*PollOption, error) {
+	return c.Query().Where(polloption.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *PollOptionClient) GetX(ctx context.Context, id int) *PollOption {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryPoll queries the poll edge of a PollOption.
+func (c *PollOptionClient) QueryPoll(_m *PollOption) *PollQuery {
+	query := (&PollClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(polloption.Table, polloption.FieldID, id),
+			sqlgraph.To(poll.Table, poll.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, polloption.PollTable, polloption.PollColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryVotes queries the votes edge of a PollOption.
+func (c *PollOptionClient) QueryVotes(_m *PollOption) *VoteQuery {
+	query := (&VoteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(polloption.Table, polloption.FieldID, id),
+			sqlgraph.To(vote.Table, vote.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, polloption.VotesTable, polloption.VotesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *PollOptionClient) Hooks() []Hook {
+	return c.hooks.PollOption
+}
+
+// Interceptors returns the client interceptors.
+func (c *PollOptionClient) Interceptors() []Interceptor {
+	return c.inters.PollOption
+}
+
+func (c *PollOptionClient) mutate(ctx context.Context, m *PollOptionMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&PollOptionCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&PollOptionUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&PollOptionUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&PollOptionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown PollOption mutation op: %q", m.Op())
 	}
 }
 
@@ -305,6 +666,22 @@ func (c *UserClient) GetX(ctx context.Context, id string) *User {
 	return obj
 }
 
+// QueryVotes queries the votes edge of a User.
+func (c *UserClient) QueryVotes(_m *User) *VoteQuery {
+	query := (&VoteClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(user.Table, user.FieldID, id),
+			sqlgraph.To(vote.Table, vote.FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, false, user.VotesTable, user.VotesColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // Hooks returns the client hooks.
 func (c *UserClient) Hooks() []Hook {
 	return c.hooks.User
@@ -330,12 +707,193 @@ func (c *UserClient) mutate(ctx context.Context, m *UserMutation) (Value, error)
 	}
 }
 
+// VoteClient is a client for the Vote schema.
+type VoteClient struct {
+	config
+}
+
+// NewVoteClient returns a client for the Vote from the given config.
+func NewVoteClient(c config) *VoteClient {
+	return &VoteClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `vote.Hooks(f(g(h())))`.
+func (c *VoteClient) Use(hooks ...Hook) {
+	c.hooks.Vote = append(c.hooks.Vote, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `vote.Intercept(f(g(h())))`.
+func (c *VoteClient) Intercept(interceptors ...Interceptor) {
+	c.inters.Vote = append(c.inters.Vote, interceptors...)
+}
+
+// Create returns a builder for creating a Vote entity.
+func (c *VoteClient) Create() *VoteCreate {
+	mutation := newVoteMutation(c.config, OpCreate)
+	return &VoteCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of Vote entities.
+func (c *VoteClient) CreateBulk(builders ...*VoteCreate) *VoteCreateBulk {
+	return &VoteCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *VoteClient) MapCreateBulk(slice any, setFunc func(*VoteCreate, int)) *VoteCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &VoteCreateBulk{err: fmt.Errorf("calling to VoteClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*VoteCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &VoteCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for Vote.
+func (c *VoteClient) Update() *VoteUpdate {
+	mutation := newVoteMutation(c.config, OpUpdate)
+	return &VoteUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *VoteClient) UpdateOne(_m *Vote) *VoteUpdateOne {
+	mutation := newVoteMutation(c.config, OpUpdateOne, withVote(_m))
+	return &VoteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *VoteClient) UpdateOneID(id int) *VoteUpdateOne {
+	mutation := newVoteMutation(c.config, OpUpdateOne, withVoteID(id))
+	return &VoteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for Vote.
+func (c *VoteClient) Delete() *VoteDelete {
+	mutation := newVoteMutation(c.config, OpDelete)
+	return &VoteDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *VoteClient) DeleteOne(_m *Vote) *VoteDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *VoteClient) DeleteOneID(id int) *VoteDeleteOne {
+	builder := c.Delete().Where(vote.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &VoteDeleteOne{builder}
+}
+
+// Query returns a query builder for Vote.
+func (c *VoteClient) Query() *VoteQuery {
+	return &VoteQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeVote},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a Vote entity by its id.
+func (c *VoteClient) Get(ctx context.Context, id int) (*Vote, error) {
+	return c.Query().Where(vote.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *VoteClient) GetX(ctx context.Context, id int) *Vote {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// QueryUser queries the user edge of a Vote.
+func (c *VoteClient) QueryUser(_m *Vote) *UserQuery {
+	query := (&UserClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(vote.Table, vote.FieldID, id),
+			sqlgraph.To(user.Table, user.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, vote.UserTable, vote.UserColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPoll queries the poll edge of a Vote.
+func (c *VoteClient) QueryPoll(_m *Vote) *PollQuery {
+	query := (&PollClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(vote.Table, vote.FieldID, id),
+			sqlgraph.To(poll.Table, poll.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, vote.PollTable, vote.PollColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryPollOption queries the poll_option edge of a Vote.
+func (c *VoteClient) QueryPollOption(_m *Vote) *PollOptionQuery {
+	query := (&PollOptionClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(vote.Table, vote.FieldID, id),
+			sqlgraph.To(polloption.Table, polloption.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, true, vote.PollOptionTable, vote.PollOptionColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// Hooks returns the client hooks.
+func (c *VoteClient) Hooks() []Hook {
+	return c.hooks.Vote
+}
+
+// Interceptors returns the client interceptors.
+func (c *VoteClient) Interceptors() []Interceptor {
+	return c.inters.Vote
+}
+
+func (c *VoteClient) mutate(ctx context.Context, m *VoteMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&VoteCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&VoteUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&VoteUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&VoteDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown Vote mutation op: %q", m.Op())
+	}
+}
+
 // hooks and interceptors per client, for fast access.
 type (
 	hooks struct {
-		User []ent.Hook
+		Poll, PollOption, User, Vote []ent.Hook
 	}
 	inters struct {
-		User []ent.Interceptor
+		Poll, PollOption, User, Vote []ent.Interceptor
 	}
 )

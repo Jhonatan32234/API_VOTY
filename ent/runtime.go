@@ -3,18 +3,44 @@
 package ent
 
 import (
+	"pruebas_doc/ent/poll"
+	"pruebas_doc/ent/polloption"
 	"pruebas_doc/ent/schema"
 	"pruebas_doc/ent/user"
+	"pruebas_doc/ent/vote"
+	"time"
 )
 
 // The init function reads all schema descriptors with runtime code
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	pollFields := schema.Poll{}.Fields()
+	_ = pollFields
+	// pollDescIsOpen is the schema descriptor for is_open field.
+	pollDescIsOpen := pollFields[1].Descriptor()
+	// poll.DefaultIsOpen holds the default value on creation for the is_open field.
+	poll.DefaultIsOpen = pollDescIsOpen.Default.(bool)
+	// pollDescCreatedAt is the schema descriptor for created_at field.
+	pollDescCreatedAt := pollFields[2].Descriptor()
+	// poll.DefaultCreatedAt holds the default value on creation for the created_at field.
+	poll.DefaultCreatedAt = pollDescCreatedAt.Default.(func() time.Time)
+	polloptionFields := schema.PollOption{}.Fields()
+	_ = polloptionFields
+	// polloptionDescVotesCount is the schema descriptor for votes_count field.
+	polloptionDescVotesCount := polloptionFields[1].Descriptor()
+	// polloption.DefaultVotesCount holds the default value on creation for the votes_count field.
+	polloption.DefaultVotesCount = polloptionDescVotesCount.Default.(int)
 	userFields := schema.User{}.Fields()
 	_ = userFields
 	// userDescActive is the schema descriptor for active field.
 	userDescActive := userFields[4].Descriptor()
 	// user.DefaultActive holds the default value on creation for the active field.
 	user.DefaultActive = userDescActive.Default.(bool)
+	voteFields := schema.Vote{}.Fields()
+	_ = voteFields
+	// voteDescCreatedAt is the schema descriptor for created_at field.
+	voteDescCreatedAt := voteFields[0].Descriptor()
+	// vote.DefaultCreatedAt holds the default value on creation for the created_at field.
+	vote.DefaultCreatedAt = voteDescCreatedAt.Default.(func() time.Time)
 }

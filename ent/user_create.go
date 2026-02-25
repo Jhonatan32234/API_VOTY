@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"pruebas_doc/ent/user"
+	"pruebas_doc/ent/vote"
 	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"
@@ -68,6 +69,21 @@ func (_c *UserCreate) SetUpdatedAt(v time.Time) *UserCreate {
 func (_c *UserCreate) SetID(v string) *UserCreate {
 	_c.mutation.SetID(v)
 	return _c
+}
+
+// AddVoteIDs adds the "votes" edge to the Vote entity by IDs.
+func (_c *UserCreate) AddVoteIDs(ids ...int) *UserCreate {
+	_c.mutation.AddVoteIDs(ids...)
+	return _c
+}
+
+// AddVotes adds the "votes" edges to the Vote entity.
+func (_c *UserCreate) AddVotes(v ...*Vote) *UserCreate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddVoteIDs(ids...)
 }
 
 // Mutation returns the UserMutation object of the builder.
@@ -189,6 +205,22 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UpdatedAt(); ok {
 		_spec.SetField(user.FieldUpdatedAt, field.TypeTime, value)
 		_node.UpdatedAt = value
+	}
+	if nodes := _c.mutation.VotesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.VotesTable,
+			Columns: []string{user.VotesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }

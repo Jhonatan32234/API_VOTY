@@ -50,6 +50,7 @@ func main() {
 		log.Fatalf("Error abriendo conexión SQL: %v", err)
 	}
 
+	
 	drv := entsql.OpenDB(dialect.MySQL, db)
 	client := ent.NewClient(ent.Driver(drv))
 	defer client.Close()
@@ -58,11 +59,16 @@ func main() {
 		log.Fatalf("Error en migraciones: %v", err)
 	}
 
-	userModel := models.NewUserModel(client, db)
-	authModel := models.NewAuthModel(client, db)
+	hub := api.NewHub()
+    go hub.Run() // No olvides poner a correr el hub en segundo plano
 
-	userAPI := api.NewUserAPI(userModel)
-	authAPI := api.NewAuthAPI(authModel)
+	pollModel := models.NewPollModel(client)
+    userModel := models.NewUserModel(client, db)
+	
+
+	authModel := models.NewAuthModel(client, db)
+    authAPI := api.NewAuthAPI(authModel)
+    userAPI := api.NewUserAPI(userModel, pollModel, hub)
 
 	mux := http.NewServeMux()
 

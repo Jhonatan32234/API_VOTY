@@ -8,6 +8,30 @@ import (
 	"pruebas_doc/ent"
 )
 
+// The PollFunc type is an adapter to allow the use of ordinary
+// function as Poll mutator.
+type PollFunc func(context.Context, *ent.PollMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PollFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PollMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PollMutation", m)
+}
+
+// The PollOptionFunc type is an adapter to allow the use of ordinary
+// function as PollOption mutator.
+type PollOptionFunc func(context.Context, *ent.PollOptionMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f PollOptionFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.PollOptionMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.PollOptionMutation", m)
+}
+
 // The UserFunc type is an adapter to allow the use of ordinary
 // function as User mutator.
 type UserFunc func(context.Context, *ent.UserMutation) (ent.Value, error)
@@ -18,6 +42,18 @@ func (f UserFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error)
 		return f(ctx, mv)
 	}
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.UserMutation", m)
+}
+
+// The VoteFunc type is an adapter to allow the use of ordinary
+// function as Vote mutator.
+type VoteFunc func(context.Context, *ent.VoteMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f VoteFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.VoteMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.VoteMutation", m)
 }
 
 // Condition is a hook condition function.
