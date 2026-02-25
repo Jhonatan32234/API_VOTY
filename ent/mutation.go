@@ -6,8 +6,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"pruebas_doc/ent/poll"
+	"pruebas_doc/ent/polloption"
 	"pruebas_doc/ent/predicate"
 	"pruebas_doc/ent/user"
+	"pruebas_doc/ent/vote"
 	"sync"
 	"time"
 
@@ -24,8 +27,1189 @@ const (
 	OpUpdateOne = ent.OpUpdateOne
 
 	// Node types.
-	TypeUser = "User"
+	TypePoll       = "Poll"
+	TypePollOption = "PollOption"
+	TypeUser       = "User"
+	TypeVote       = "Vote"
 )
+
+// PollMutation represents an operation that mutates the Poll nodes in the graph.
+type PollMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	title          *string
+	is_open        *bool
+	created_at     *time.Time
+	clearedFields  map[string]struct{}
+	options        map[int]struct{}
+	removedoptions map[int]struct{}
+	clearedoptions bool
+	votes          map[int]struct{}
+	removedvotes   map[int]struct{}
+	clearedvotes   bool
+	done           bool
+	oldValue       func(context.Context) (*Poll, error)
+	predicates     []predicate.Poll
+}
+
+var _ ent.Mutation = (*PollMutation)(nil)
+
+// pollOption allows management of the mutation configuration using functional options.
+type pollOption func(*PollMutation)
+
+// newPollMutation creates new mutation for the Poll entity.
+func newPollMutation(c config, op Op, opts ...pollOption) *PollMutation {
+	m := &PollMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePoll,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPollID sets the ID field of the mutation.
+func withPollID(id int) pollOption {
+	return func(m *PollMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Poll
+		)
+		m.oldValue = func(ctx context.Context) (*Poll, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Poll.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPoll sets the old Poll of the mutation.
+func withPoll(node *Poll) pollOption {
+	return func(m *PollMutation) {
+		m.oldValue = func(context.Context) (*Poll, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PollMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PollMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PollMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PollMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Poll.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetTitle sets the "title" field.
+func (m *PollMutation) SetTitle(s string) {
+	m.title = &s
+}
+
+// Title returns the value of the "title" field in the mutation.
+func (m *PollMutation) Title() (r string, exists bool) {
+	v := m.title
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldTitle returns the old "title" field's value of the Poll entity.
+// If the Poll object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PollMutation) OldTitle(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldTitle is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldTitle requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldTitle: %w", err)
+	}
+	return oldValue.Title, nil
+}
+
+// ResetTitle resets all changes to the "title" field.
+func (m *PollMutation) ResetTitle() {
+	m.title = nil
+}
+
+// SetIsOpen sets the "is_open" field.
+func (m *PollMutation) SetIsOpen(b bool) {
+	m.is_open = &b
+}
+
+// IsOpen returns the value of the "is_open" field in the mutation.
+func (m *PollMutation) IsOpen() (r bool, exists bool) {
+	v := m.is_open
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldIsOpen returns the old "is_open" field's value of the Poll entity.
+// If the Poll object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PollMutation) OldIsOpen(ctx context.Context) (v bool, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldIsOpen is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldIsOpen requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldIsOpen: %w", err)
+	}
+	return oldValue.IsOpen, nil
+}
+
+// ResetIsOpen resets all changes to the "is_open" field.
+func (m *PollMutation) ResetIsOpen() {
+	m.is_open = nil
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *PollMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *PollMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Poll entity.
+// If the Poll object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PollMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *PollMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// AddOptionIDs adds the "options" edge to the PollOption entity by ids.
+func (m *PollMutation) AddOptionIDs(ids ...int) {
+	if m.options == nil {
+		m.options = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.options[ids[i]] = struct{}{}
+	}
+}
+
+// ClearOptions clears the "options" edge to the PollOption entity.
+func (m *PollMutation) ClearOptions() {
+	m.clearedoptions = true
+}
+
+// OptionsCleared reports if the "options" edge to the PollOption entity was cleared.
+func (m *PollMutation) OptionsCleared() bool {
+	return m.clearedoptions
+}
+
+// RemoveOptionIDs removes the "options" edge to the PollOption entity by IDs.
+func (m *PollMutation) RemoveOptionIDs(ids ...int) {
+	if m.removedoptions == nil {
+		m.removedoptions = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.options, ids[i])
+		m.removedoptions[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedOptions returns the removed IDs of the "options" edge to the PollOption entity.
+func (m *PollMutation) RemovedOptionsIDs() (ids []int) {
+	for id := range m.removedoptions {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// OptionsIDs returns the "options" edge IDs in the mutation.
+func (m *PollMutation) OptionsIDs() (ids []int) {
+	for id := range m.options {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetOptions resets all changes to the "options" edge.
+func (m *PollMutation) ResetOptions() {
+	m.options = nil
+	m.clearedoptions = false
+	m.removedoptions = nil
+}
+
+// AddVoteIDs adds the "votes" edge to the Vote entity by ids.
+func (m *PollMutation) AddVoteIDs(ids ...int) {
+	if m.votes == nil {
+		m.votes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.votes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVotes clears the "votes" edge to the Vote entity.
+func (m *PollMutation) ClearVotes() {
+	m.clearedvotes = true
+}
+
+// VotesCleared reports if the "votes" edge to the Vote entity was cleared.
+func (m *PollMutation) VotesCleared() bool {
+	return m.clearedvotes
+}
+
+// RemoveVoteIDs removes the "votes" edge to the Vote entity by IDs.
+func (m *PollMutation) RemoveVoteIDs(ids ...int) {
+	if m.removedvotes == nil {
+		m.removedvotes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.votes, ids[i])
+		m.removedvotes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVotes returns the removed IDs of the "votes" edge to the Vote entity.
+func (m *PollMutation) RemovedVotesIDs() (ids []int) {
+	for id := range m.removedvotes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VotesIDs returns the "votes" edge IDs in the mutation.
+func (m *PollMutation) VotesIDs() (ids []int) {
+	for id := range m.votes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVotes resets all changes to the "votes" edge.
+func (m *PollMutation) ResetVotes() {
+	m.votes = nil
+	m.clearedvotes = false
+	m.removedvotes = nil
+}
+
+// Where appends a list predicates to the PollMutation builder.
+func (m *PollMutation) Where(ps ...predicate.Poll) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PollMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PollMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Poll, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PollMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PollMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Poll).
+func (m *PollMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PollMutation) Fields() []string {
+	fields := make([]string, 0, 3)
+	if m.title != nil {
+		fields = append(fields, poll.FieldTitle)
+	}
+	if m.is_open != nil {
+		fields = append(fields, poll.FieldIsOpen)
+	}
+	if m.created_at != nil {
+		fields = append(fields, poll.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PollMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case poll.FieldTitle:
+		return m.Title()
+	case poll.FieldIsOpen:
+		return m.IsOpen()
+	case poll.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PollMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case poll.FieldTitle:
+		return m.OldTitle(ctx)
+	case poll.FieldIsOpen:
+		return m.OldIsOpen(ctx)
+	case poll.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Poll field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PollMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case poll.FieldTitle:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetTitle(v)
+		return nil
+	case poll.FieldIsOpen:
+		v, ok := value.(bool)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetIsOpen(v)
+		return nil
+	case poll.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Poll field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PollMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PollMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PollMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Poll numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PollMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PollMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PollMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Poll nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PollMutation) ResetField(name string) error {
+	switch name {
+	case poll.FieldTitle:
+		m.ResetTitle()
+		return nil
+	case poll.FieldIsOpen:
+		m.ResetIsOpen()
+		return nil
+	case poll.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Poll field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PollMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.options != nil {
+		edges = append(edges, poll.EdgeOptions)
+	}
+	if m.votes != nil {
+		edges = append(edges, poll.EdgeVotes)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PollMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case poll.EdgeOptions:
+		ids := make([]ent.Value, 0, len(m.options))
+		for id := range m.options {
+			ids = append(ids, id)
+		}
+		return ids
+	case poll.EdgeVotes:
+		ids := make([]ent.Value, 0, len(m.votes))
+		for id := range m.votes {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PollMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.removedoptions != nil {
+		edges = append(edges, poll.EdgeOptions)
+	}
+	if m.removedvotes != nil {
+		edges = append(edges, poll.EdgeVotes)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PollMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case poll.EdgeOptions:
+		ids := make([]ent.Value, 0, len(m.removedoptions))
+		for id := range m.removedoptions {
+			ids = append(ids, id)
+		}
+		return ids
+	case poll.EdgeVotes:
+		ids := make([]ent.Value, 0, len(m.removedvotes))
+		for id := range m.removedvotes {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PollMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedoptions {
+		edges = append(edges, poll.EdgeOptions)
+	}
+	if m.clearedvotes {
+		edges = append(edges, poll.EdgeVotes)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PollMutation) EdgeCleared(name string) bool {
+	switch name {
+	case poll.EdgeOptions:
+		return m.clearedoptions
+	case poll.EdgeVotes:
+		return m.clearedvotes
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PollMutation) ClearEdge(name string) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Poll unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PollMutation) ResetEdge(name string) error {
+	switch name {
+	case poll.EdgeOptions:
+		m.ResetOptions()
+		return nil
+	case poll.EdgeVotes:
+		m.ResetVotes()
+		return nil
+	}
+	return fmt.Errorf("unknown Poll edge %s", name)
+}
+
+// PollOptionMutation represents an operation that mutates the PollOption nodes in the graph.
+type PollOptionMutation struct {
+	config
+	op             Op
+	typ            string
+	id             *int
+	text           *string
+	votes_count    *int
+	addvotes_count *int
+	clearedFields  map[string]struct{}
+	poll           *int
+	clearedpoll    bool
+	votes          map[int]struct{}
+	removedvotes   map[int]struct{}
+	clearedvotes   bool
+	done           bool
+	oldValue       func(context.Context) (*PollOption, error)
+	predicates     []predicate.PollOption
+}
+
+var _ ent.Mutation = (*PollOptionMutation)(nil)
+
+// polloptionOption allows management of the mutation configuration using functional options.
+type polloptionOption func(*PollOptionMutation)
+
+// newPollOptionMutation creates new mutation for the PollOption entity.
+func newPollOptionMutation(c config, op Op, opts ...polloptionOption) *PollOptionMutation {
+	m := &PollOptionMutation{
+		config:        c,
+		op:            op,
+		typ:           TypePollOption,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withPollOptionID sets the ID field of the mutation.
+func withPollOptionID(id int) polloptionOption {
+	return func(m *PollOptionMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *PollOption
+		)
+		m.oldValue = func(ctx context.Context) (*PollOption, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().PollOption.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withPollOption sets the old PollOption of the mutation.
+func withPollOption(node *PollOption) polloptionOption {
+	return func(m *PollOptionMutation) {
+		m.oldValue = func(context.Context) (*PollOption, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m PollOptionMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m PollOptionMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *PollOptionMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *PollOptionMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().PollOption.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetText sets the "text" field.
+func (m *PollOptionMutation) SetText(s string) {
+	m.text = &s
+}
+
+// Text returns the value of the "text" field in the mutation.
+func (m *PollOptionMutation) Text() (r string, exists bool) {
+	v := m.text
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldText returns the old "text" field's value of the PollOption entity.
+// If the PollOption object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PollOptionMutation) OldText(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldText is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldText requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldText: %w", err)
+	}
+	return oldValue.Text, nil
+}
+
+// ResetText resets all changes to the "text" field.
+func (m *PollOptionMutation) ResetText() {
+	m.text = nil
+}
+
+// SetVotesCount sets the "votes_count" field.
+func (m *PollOptionMutation) SetVotesCount(i int) {
+	m.votes_count = &i
+	m.addvotes_count = nil
+}
+
+// VotesCount returns the value of the "votes_count" field in the mutation.
+func (m *PollOptionMutation) VotesCount() (r int, exists bool) {
+	v := m.votes_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldVotesCount returns the old "votes_count" field's value of the PollOption entity.
+// If the PollOption object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PollOptionMutation) OldVotesCount(ctx context.Context) (v int, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldVotesCount is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldVotesCount requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldVotesCount: %w", err)
+	}
+	return oldValue.VotesCount, nil
+}
+
+// AddVotesCount adds i to the "votes_count" field.
+func (m *PollOptionMutation) AddVotesCount(i int) {
+	if m.addvotes_count != nil {
+		*m.addvotes_count += i
+	} else {
+		m.addvotes_count = &i
+	}
+}
+
+// AddedVotesCount returns the value that was added to the "votes_count" field in this mutation.
+func (m *PollOptionMutation) AddedVotesCount() (r int, exists bool) {
+	v := m.addvotes_count
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetVotesCount resets all changes to the "votes_count" field.
+func (m *PollOptionMutation) ResetVotesCount() {
+	m.votes_count = nil
+	m.addvotes_count = nil
+}
+
+// SetPollID sets the "poll" edge to the Poll entity by id.
+func (m *PollOptionMutation) SetPollID(id int) {
+	m.poll = &id
+}
+
+// ClearPoll clears the "poll" edge to the Poll entity.
+func (m *PollOptionMutation) ClearPoll() {
+	m.clearedpoll = true
+}
+
+// PollCleared reports if the "poll" edge to the Poll entity was cleared.
+func (m *PollOptionMutation) PollCleared() bool {
+	return m.clearedpoll
+}
+
+// PollID returns the "poll" edge ID in the mutation.
+func (m *PollOptionMutation) PollID() (id int, exists bool) {
+	if m.poll != nil {
+		return *m.poll, true
+	}
+	return
+}
+
+// PollIDs returns the "poll" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PollID instead. It exists only for internal usage by the builders.
+func (m *PollOptionMutation) PollIDs() (ids []int) {
+	if id := m.poll; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPoll resets all changes to the "poll" edge.
+func (m *PollOptionMutation) ResetPoll() {
+	m.poll = nil
+	m.clearedpoll = false
+}
+
+// AddVoteIDs adds the "votes" edge to the Vote entity by ids.
+func (m *PollOptionMutation) AddVoteIDs(ids ...int) {
+	if m.votes == nil {
+		m.votes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.votes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVotes clears the "votes" edge to the Vote entity.
+func (m *PollOptionMutation) ClearVotes() {
+	m.clearedvotes = true
+}
+
+// VotesCleared reports if the "votes" edge to the Vote entity was cleared.
+func (m *PollOptionMutation) VotesCleared() bool {
+	return m.clearedvotes
+}
+
+// RemoveVoteIDs removes the "votes" edge to the Vote entity by IDs.
+func (m *PollOptionMutation) RemoveVoteIDs(ids ...int) {
+	if m.removedvotes == nil {
+		m.removedvotes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.votes, ids[i])
+		m.removedvotes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVotes returns the removed IDs of the "votes" edge to the Vote entity.
+func (m *PollOptionMutation) RemovedVotesIDs() (ids []int) {
+	for id := range m.removedvotes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VotesIDs returns the "votes" edge IDs in the mutation.
+func (m *PollOptionMutation) VotesIDs() (ids []int) {
+	for id := range m.votes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVotes resets all changes to the "votes" edge.
+func (m *PollOptionMutation) ResetVotes() {
+	m.votes = nil
+	m.clearedvotes = false
+	m.removedvotes = nil
+}
+
+// Where appends a list predicates to the PollOptionMutation builder.
+func (m *PollOptionMutation) Where(ps ...predicate.PollOption) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the PollOptionMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *PollOptionMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.PollOption, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *PollOptionMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *PollOptionMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (PollOption).
+func (m *PollOptionMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *PollOptionMutation) Fields() []string {
+	fields := make([]string, 0, 2)
+	if m.text != nil {
+		fields = append(fields, polloption.FieldText)
+	}
+	if m.votes_count != nil {
+		fields = append(fields, polloption.FieldVotesCount)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *PollOptionMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case polloption.FieldText:
+		return m.Text()
+	case polloption.FieldVotesCount:
+		return m.VotesCount()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *PollOptionMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case polloption.FieldText:
+		return m.OldText(ctx)
+	case polloption.FieldVotesCount:
+		return m.OldVotesCount(ctx)
+	}
+	return nil, fmt.Errorf("unknown PollOption field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PollOptionMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case polloption.FieldText:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetText(v)
+		return nil
+	case polloption.FieldVotesCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetVotesCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PollOption field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *PollOptionMutation) AddedFields() []string {
+	var fields []string
+	if m.addvotes_count != nil {
+		fields = append(fields, polloption.FieldVotesCount)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *PollOptionMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case polloption.FieldVotesCount:
+		return m.AddedVotesCount()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *PollOptionMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case polloption.FieldVotesCount:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddVotesCount(v)
+		return nil
+	}
+	return fmt.Errorf("unknown PollOption numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *PollOptionMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *PollOptionMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *PollOptionMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown PollOption nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *PollOptionMutation) ResetField(name string) error {
+	switch name {
+	case polloption.FieldText:
+		m.ResetText()
+		return nil
+	case polloption.FieldVotesCount:
+		m.ResetVotesCount()
+		return nil
+	}
+	return fmt.Errorf("unknown PollOption field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *PollOptionMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.poll != nil {
+		edges = append(edges, polloption.EdgePoll)
+	}
+	if m.votes != nil {
+		edges = append(edges, polloption.EdgeVotes)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *PollOptionMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case polloption.EdgePoll:
+		if id := m.poll; id != nil {
+			return []ent.Value{*id}
+		}
+	case polloption.EdgeVotes:
+		ids := make([]ent.Value, 0, len(m.votes))
+		for id := range m.votes {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *PollOptionMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.removedvotes != nil {
+		edges = append(edges, polloption.EdgeVotes)
+	}
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *PollOptionMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case polloption.EdgeVotes:
+		ids := make([]ent.Value, 0, len(m.removedvotes))
+		for id := range m.removedvotes {
+			ids = append(ids, id)
+		}
+		return ids
+	}
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *PollOptionMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedpoll {
+		edges = append(edges, polloption.EdgePoll)
+	}
+	if m.clearedvotes {
+		edges = append(edges, polloption.EdgeVotes)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *PollOptionMutation) EdgeCleared(name string) bool {
+	switch name {
+	case polloption.EdgePoll:
+		return m.clearedpoll
+	case polloption.EdgeVotes:
+		return m.clearedvotes
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *PollOptionMutation) ClearEdge(name string) error {
+	switch name {
+	case polloption.EdgePoll:
+		m.ClearPoll()
+		return nil
+	}
+	return fmt.Errorf("unknown PollOption unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *PollOptionMutation) ResetEdge(name string) error {
+	switch name {
+	case polloption.EdgePoll:
+		m.ResetPoll()
+		return nil
+	case polloption.EdgeVotes:
+		m.ResetVotes()
+		return nil
+	}
+	return fmt.Errorf("unknown PollOption edge %s", name)
+}
 
 // UserMutation represents an operation that mutates the User nodes in the graph.
 type UserMutation struct {
@@ -40,6 +1224,9 @@ type UserMutation struct {
 	created_at    *time.Time
 	updated_at    *time.Time
 	clearedFields map[string]struct{}
+	votes         map[int]struct{}
+	removedvotes  map[int]struct{}
+	clearedvotes  bool
 	done          bool
 	oldValue      func(context.Context) (*User, error)
 	predicates    []predicate.User
@@ -365,6 +1552,60 @@ func (m *UserMutation) ResetUpdatedAt() {
 	m.updated_at = nil
 }
 
+// AddVoteIDs adds the "votes" edge to the Vote entity by ids.
+func (m *UserMutation) AddVoteIDs(ids ...int) {
+	if m.votes == nil {
+		m.votes = make(map[int]struct{})
+	}
+	for i := range ids {
+		m.votes[ids[i]] = struct{}{}
+	}
+}
+
+// ClearVotes clears the "votes" edge to the Vote entity.
+func (m *UserMutation) ClearVotes() {
+	m.clearedvotes = true
+}
+
+// VotesCleared reports if the "votes" edge to the Vote entity was cleared.
+func (m *UserMutation) VotesCleared() bool {
+	return m.clearedvotes
+}
+
+// RemoveVoteIDs removes the "votes" edge to the Vote entity by IDs.
+func (m *UserMutation) RemoveVoteIDs(ids ...int) {
+	if m.removedvotes == nil {
+		m.removedvotes = make(map[int]struct{})
+	}
+	for i := range ids {
+		delete(m.votes, ids[i])
+		m.removedvotes[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedVotes returns the removed IDs of the "votes" edge to the Vote entity.
+func (m *UserMutation) RemovedVotesIDs() (ids []int) {
+	for id := range m.removedvotes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// VotesIDs returns the "votes" edge IDs in the mutation.
+func (m *UserMutation) VotesIDs() (ids []int) {
+	for id := range m.votes {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetVotes resets all changes to the "votes" edge.
+func (m *UserMutation) ResetVotes() {
+	m.votes = nil
+	m.clearedvotes = false
+	m.removedvotes = nil
+}
+
 // Where appends a list predicates to the UserMutation builder.
 func (m *UserMutation) Where(ps ...predicate.User) {
 	m.predicates = append(m.predicates, ps...)
@@ -583,48 +1824,595 @@ func (m *UserMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *UserMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.votes != nil {
+		edges = append(edges, user.EdgeVotes)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *UserMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeVotes:
+		ids := make([]ent.Value, 0, len(m.votes))
+		for id := range m.votes {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *UserMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.removedvotes != nil {
+		edges = append(edges, user.EdgeVotes)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *UserMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case user.EdgeVotes:
+		ids := make([]ent.Value, 0, len(m.removedvotes))
+		for id := range m.removedvotes {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *UserMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedvotes {
+		edges = append(edges, user.EdgeVotes)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *UserMutation) EdgeCleared(name string) bool {
+	switch name {
+	case user.EdgeVotes:
+		return m.clearedvotes
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *UserMutation) ClearEdge(name string) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown User unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *UserMutation) ResetEdge(name string) error {
+	switch name {
+	case user.EdgeVotes:
+		m.ResetVotes()
+		return nil
+	}
 	return fmt.Errorf("unknown User edge %s", name)
+}
+
+// VoteMutation represents an operation that mutates the Vote nodes in the graph.
+type VoteMutation struct {
+	config
+	op                 Op
+	typ                string
+	id                 *int
+	created_at         *time.Time
+	clearedFields      map[string]struct{}
+	user               *string
+	cleareduser        bool
+	poll               *int
+	clearedpoll        bool
+	poll_option        *int
+	clearedpoll_option bool
+	done               bool
+	oldValue           func(context.Context) (*Vote, error)
+	predicates         []predicate.Vote
+}
+
+var _ ent.Mutation = (*VoteMutation)(nil)
+
+// voteOption allows management of the mutation configuration using functional options.
+type voteOption func(*VoteMutation)
+
+// newVoteMutation creates new mutation for the Vote entity.
+func newVoteMutation(c config, op Op, opts ...voteOption) *VoteMutation {
+	m := &VoteMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeVote,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// withVoteID sets the ID field of the mutation.
+func withVoteID(id int) voteOption {
+	return func(m *VoteMutation) {
+		var (
+			err   error
+			once  sync.Once
+			value *Vote
+		)
+		m.oldValue = func(ctx context.Context) (*Vote, error) {
+			once.Do(func() {
+				if m.done {
+					err = errors.New("querying old values post mutation is not allowed")
+				} else {
+					value, err = m.Client().Vote.Get(ctx, id)
+				}
+			})
+			return value, err
+		}
+		m.id = &id
+	}
+}
+
+// withVote sets the old Vote of the mutation.
+func withVote(node *Vote) voteOption {
+	return func(m *VoteMutation) {
+		m.oldValue = func(context.Context) (*Vote, error) {
+			return node, nil
+		}
+		m.id = &node.ID
+	}
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m VoteMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m VoteMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// ID returns the ID value in the mutation. Note that the ID is only available
+// if it was provided to the builder or after it was returned from the database.
+func (m *VoteMutation) ID() (id int, exists bool) {
+	if m.id == nil {
+		return
+	}
+	return *m.id, true
+}
+
+// IDs queries the database and returns the entity ids that match the mutation's predicate.
+// That means, if the mutation is applied within a transaction with an isolation level such
+// as sql.LevelSerializable, the returned ids match the ids of the rows that will be updated
+// or updated by the mutation.
+func (m *VoteMutation) IDs(ctx context.Context) ([]int, error) {
+	switch {
+	case m.op.Is(OpUpdateOne | OpDeleteOne):
+		id, exists := m.ID()
+		if exists {
+			return []int{id}, nil
+		}
+		fallthrough
+	case m.op.Is(OpUpdate | OpDelete):
+		return m.Client().Vote.Query().Where(m.predicates...).IDs(ctx)
+	default:
+		return nil, fmt.Errorf("IDs is not allowed on %s operations", m.op)
+	}
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *VoteMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *VoteMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldCreatedAt returns the old "created_at" field's value of the Vote entity.
+// If the Vote object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *VoteMutation) OldCreatedAt(ctx context.Context) (v time.Time, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldCreatedAt is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldCreatedAt requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldCreatedAt: %w", err)
+	}
+	return oldValue.CreatedAt, nil
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *VoteMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// SetUserID sets the "user" edge to the User entity by id.
+func (m *VoteMutation) SetUserID(id string) {
+	m.user = &id
+}
+
+// ClearUser clears the "user" edge to the User entity.
+func (m *VoteMutation) ClearUser() {
+	m.cleareduser = true
+}
+
+// UserCleared reports if the "user" edge to the User entity was cleared.
+func (m *VoteMutation) UserCleared() bool {
+	return m.cleareduser
+}
+
+// UserID returns the "user" edge ID in the mutation.
+func (m *VoteMutation) UserID() (id string, exists bool) {
+	if m.user != nil {
+		return *m.user, true
+	}
+	return
+}
+
+// UserIDs returns the "user" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// UserID instead. It exists only for internal usage by the builders.
+func (m *VoteMutation) UserIDs() (ids []string) {
+	if id := m.user; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetUser resets all changes to the "user" edge.
+func (m *VoteMutation) ResetUser() {
+	m.user = nil
+	m.cleareduser = false
+}
+
+// SetPollID sets the "poll" edge to the Poll entity by id.
+func (m *VoteMutation) SetPollID(id int) {
+	m.poll = &id
+}
+
+// ClearPoll clears the "poll" edge to the Poll entity.
+func (m *VoteMutation) ClearPoll() {
+	m.clearedpoll = true
+}
+
+// PollCleared reports if the "poll" edge to the Poll entity was cleared.
+func (m *VoteMutation) PollCleared() bool {
+	return m.clearedpoll
+}
+
+// PollID returns the "poll" edge ID in the mutation.
+func (m *VoteMutation) PollID() (id int, exists bool) {
+	if m.poll != nil {
+		return *m.poll, true
+	}
+	return
+}
+
+// PollIDs returns the "poll" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PollID instead. It exists only for internal usage by the builders.
+func (m *VoteMutation) PollIDs() (ids []int) {
+	if id := m.poll; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPoll resets all changes to the "poll" edge.
+func (m *VoteMutation) ResetPoll() {
+	m.poll = nil
+	m.clearedpoll = false
+}
+
+// SetPollOptionID sets the "poll_option" edge to the PollOption entity by id.
+func (m *VoteMutation) SetPollOptionID(id int) {
+	m.poll_option = &id
+}
+
+// ClearPollOption clears the "poll_option" edge to the PollOption entity.
+func (m *VoteMutation) ClearPollOption() {
+	m.clearedpoll_option = true
+}
+
+// PollOptionCleared reports if the "poll_option" edge to the PollOption entity was cleared.
+func (m *VoteMutation) PollOptionCleared() bool {
+	return m.clearedpoll_option
+}
+
+// PollOptionID returns the "poll_option" edge ID in the mutation.
+func (m *VoteMutation) PollOptionID() (id int, exists bool) {
+	if m.poll_option != nil {
+		return *m.poll_option, true
+	}
+	return
+}
+
+// PollOptionIDs returns the "poll_option" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// PollOptionID instead. It exists only for internal usage by the builders.
+func (m *VoteMutation) PollOptionIDs() (ids []int) {
+	if id := m.poll_option; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetPollOption resets all changes to the "poll_option" edge.
+func (m *VoteMutation) ResetPollOption() {
+	m.poll_option = nil
+	m.clearedpoll_option = false
+}
+
+// Where appends a list predicates to the VoteMutation builder.
+func (m *VoteMutation) Where(ps ...predicate.Vote) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the VoteMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *VoteMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.Vote, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *VoteMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *VoteMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (Vote).
+func (m *VoteMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *VoteMutation) Fields() []string {
+	fields := make([]string, 0, 1)
+	if m.created_at != nil {
+		fields = append(fields, vote.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *VoteMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case vote.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *VoteMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	switch name {
+	case vote.FieldCreatedAt:
+		return m.OldCreatedAt(ctx)
+	}
+	return nil, fmt.Errorf("unknown Vote field %s", name)
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *VoteMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case vote.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown Vote field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *VoteMutation) AddedFields() []string {
+	return nil
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *VoteMutation) AddedField(name string) (ent.Value, bool) {
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *VoteMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	}
+	return fmt.Errorf("unknown Vote numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *VoteMutation) ClearedFields() []string {
+	return nil
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *VoteMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *VoteMutation) ClearField(name string) error {
+	return fmt.Errorf("unknown Vote nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *VoteMutation) ResetField(name string) error {
+	switch name {
+	case vote.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown Vote field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *VoteMutation) AddedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.user != nil {
+		edges = append(edges, vote.EdgeUser)
+	}
+	if m.poll != nil {
+		edges = append(edges, vote.EdgePoll)
+	}
+	if m.poll_option != nil {
+		edges = append(edges, vote.EdgePollOption)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *VoteMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case vote.EdgeUser:
+		if id := m.user; id != nil {
+			return []ent.Value{*id}
+		}
+	case vote.EdgePoll:
+		if id := m.poll; id != nil {
+			return []ent.Value{*id}
+		}
+	case vote.EdgePollOption:
+		if id := m.poll_option; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *VoteMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 3)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *VoteMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *VoteMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 3)
+	if m.cleareduser {
+		edges = append(edges, vote.EdgeUser)
+	}
+	if m.clearedpoll {
+		edges = append(edges, vote.EdgePoll)
+	}
+	if m.clearedpoll_option {
+		edges = append(edges, vote.EdgePollOption)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *VoteMutation) EdgeCleared(name string) bool {
+	switch name {
+	case vote.EdgeUser:
+		return m.cleareduser
+	case vote.EdgePoll:
+		return m.clearedpoll
+	case vote.EdgePollOption:
+		return m.clearedpoll_option
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *VoteMutation) ClearEdge(name string) error {
+	switch name {
+	case vote.EdgeUser:
+		m.ClearUser()
+		return nil
+	case vote.EdgePoll:
+		m.ClearPoll()
+		return nil
+	case vote.EdgePollOption:
+		m.ClearPollOption()
+		return nil
+	}
+	return fmt.Errorf("unknown Vote unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *VoteMutation) ResetEdge(name string) error {
+	switch name {
+	case vote.EdgeUser:
+		m.ResetUser()
+		return nil
+	case vote.EdgePoll:
+		m.ResetPoll()
+		return nil
+	case vote.EdgePollOption:
+		m.ResetPollOption()
+		return nil
+	}
+	return fmt.Errorf("unknown Vote edge %s", name)
 }

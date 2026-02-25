@@ -2,19 +2,32 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"net/http"
-	
+	"pruebas_doc/internal/models"
+	"pruebas_doc/internal/utils"
+
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
-	"pruebas_doc/internal/models"
+	"github.com/gorilla/websocket"
 )
 
-type UserAPI struct {
-	userModel *models.UserModel
+var upgrader = websocket.Upgrader{
+    CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func NewUserAPI(userModel *models.UserModel) *UserAPI {
-	return &UserAPI{userModel: userModel}
+type UserAPI struct {
+    userModel *models.UserModel
+    pollModel *models.PollModel
+    Hub       *Hub            
+}
+
+func NewUserAPI(userModel *models.UserModel, pollModel *models.PollModel, hub *Hub) *UserAPI {
+    return &UserAPI{
+        userModel: userModel,
+        pollModel: pollModel,
+        Hub:       hub,
+    }
 }
 
 type CreateUserRequest struct {
@@ -52,6 +65,111 @@ type DeleteUserRequest struct {
 	ID string `path:"id" doc:"User ID"`
 }
 
+// Estructura de salida para la API
+type PollOutput struct {
+	ID               string         `json:"id"`
+	Title            string         `json:"title"`
+	Options          []OptionOutput `json:"options"`
+	Voted            bool           `json:"voted"`             // ¿El usuario ya votó?
+	SelectedOptionID string         `json:"selected_option_id,omitempty"` // ¿Por cuál votó?
+}
+
+type OptionOutput struct {
+	ID         string `json:"id"`
+	Text       string `json:"text"`
+	VotesCount int    `json:"votes_count"`
+}
+
+type ListPollsResponse struct {
+	Body []PollOutput
+}
+
+func (a *UserAPI) ListPolls(ctx context.Context, input *struct{}) (*ListPollsResponse, error) {
+	// Obtenemos el ID del usuario desde el JWT
+    userID := utils.GetUserIDFromContext(ctx)
+	polls, err := a.pollModel.ListAllWithUserStatus(ctx, userID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Error al listar", err)
+	}
+
+	output := make([]PollOutput, len(polls))
+	for i, p := range polls {
+		voted := len(p.Edges.Votes) > 0
+		var selectedID string
+		if voted {
+            // p.Edges.Votes[0] es el voto del usuario
+            // .Edges.PollOption es la relación cargada gracias al .WithPollOption() anterior
+            if p.Edges.Votes[0].Edges.PollOption != nil {
+                selectedID = fmt.Sprintf("%d", p.Edges.Votes[0].Edges.PollOption.ID)
+            }
+        } 
+
+		opts := make([]OptionOutput, len(p.Edges.Options))
+		for j, o := range p.Edges.Options {
+			opts[j] = OptionOutput{ID: fmt.Sprintf("%d", o.ID), Text: o.Text, VotesCount: o.VotesCount}
+		}
+		
+		output[i] = PollOutput{
+			ID:               fmt.Sprintf("%d", p.ID),
+			Title:            p.Title,
+			Options:          opts,
+			Voted:            voted,
+			SelectedOptionID: selectedID,
+		}
+	}
+
+	return &ListPollsResponse{Body: output}, nil
+}
+
+func (a *UserAPI) SubscribeVotes(w http.ResponseWriter, r *http.Request) {
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        return
+    }
+
+    // Canal local para este cliente específico
+    clientChan := make(chan VoteUpdate)
+    a.Hub.Register <- clientChan
+
+    // Asegurar limpieza al desconectar
+    defer func() {
+        a.Hub.Unregister <- clientChan
+        conn.Close()
+    }()
+
+    // Escuchar actualizaciones del Hub y enviarlas al móvil
+    for update := range clientChan {
+        err := conn.WriteJSON(update)
+        if err != nil {
+            break // Si falla la escritura (ej: el móvil perdió señal), cerramos
+        }
+    }
+}
+
+// Estructura para recibir los datos
+type CreatePollRequest struct {
+	Body struct {
+		Title   string   `json:"title" doc:"Título de la encuesta" example:"¿Cuál es el mejor lenguaje?"`
+		Options []string `json:"options" doc:"Lista de opciones" example:"[\"Go\", \"Kotlin\"]"`
+	}
+}
+
+func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollRequest) (*struct{}, error) {
+	// 1. Crear la encuesta
+	p, err := a.pollModel.Create(ctx, input.Body.Title)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Error al crear la encuesta", err)
+	}
+
+	// 2. Crear las opciones
+	for _, optText := range input.Body.Options {
+		if err := a.pollModel.AddOption(ctx, fmt.Sprintf("%d", p.ID), optText); err != nil {
+			return nil, huma.Error500InternalServerError("Error al crear las opciones", err)
+		}
+	}
+
+	return nil, nil
+}
 func (a *UserAPI) CreateUser(ctx context.Context, req *CreateUserRequest) (*UserResponse, error) {
 	input := models.UserInput{
 		Email:    req.Body.Email,
@@ -190,7 +308,7 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Tags:        []string{"Users"},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{
-        AuthMiddleware(app), // <-- Pásalo directamente así
+        AuthMiddleware(app),
         },
 	}, userAPI.UpdateUser)
 	
@@ -202,7 +320,41 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Tags:        []string{"Users"},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{
-        AuthMiddleware(app), // <-- Pásalo directamente así
+        AuthMiddleware(app),
         },
 	}, userAPI.DeleteUser)
+
+	huma.Register(app, huma.Operation{
+        OperationID: "post-vote",
+        Method:      http.MethodPost,
+        Path:        "/polls/{poll_id}/vote/{option_id}",
+        Summary:     "Emitir un voto",
+		Tags:        []string{"Voting"},
+
+        Security:    []map[string][]string{{"bearerAuth": {}}},
+        Middlewares: huma.Middlewares{AuthMiddleware(app)},
+    }, userAPI.PostVote)
+
+    router.HandleFunc("/ws/votes", userAPI.SubscribeVotes)
+
+	huma.Register(app, huma.Operation{
+    OperationID: "create-poll",
+    Method:      http.MethodPost,
+    Path:        "/polls",
+    Summary:     "Crear una nueva encuesta",
+    Description: "Crea una encuesta con sus opciones iniciales. Solo para administradores (en el futuro).",
+    Tags:        []string{"Voting"},
+    Security:    []map[string][]string{{"bearerAuth": {}}},
+    Middlewares: huma.Middlewares{AuthMiddleware(app)},
+}, userAPI.CreatePoll)
+
+huma.Register(app, huma.Operation{
+    OperationID: "list-polls",
+    Method:      http.MethodGet,
+    Path:        "/polls",
+    Summary:     "Listar encuestas",
+    Tags:        []string{"Voting"},
+	Security:    []map[string][]string{{"bearerAuth": {}}},
+	Middlewares: huma.Middlewares{AuthMiddleware(app)},
+}, userAPI.ListPolls)
 }

@@ -2,6 +2,7 @@ package schema
 
 import (
 	"entgo.io/ent"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 )
 
@@ -19,4 +20,11 @@ func (User) Fields() []ent.Field {
 		field.Time("created_at").Immutable(),
 		field.Time("updated_at"),
 	}
+}
+
+func (User) Edges() []ent.Edge {
+    return []ent.Edge{
+        // Añade esto para que User sepa que tiene muchos votos
+        edge.To("votes", Vote.Type),
+    }
 }
