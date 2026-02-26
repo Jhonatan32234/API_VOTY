@@ -3,12 +3,12 @@
 package ent
 
 import (
+	"api_voty/ent/predicate"
+	"api_voty/ent/user"
+	"api_voty/ent/vote"
 	"context"
 	"errors"
 	"fmt"
-	"pruebas_doc/ent/predicate"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/ent/vote"
 	"time"
 
 	"entgo.io/ent/dialect/sql"

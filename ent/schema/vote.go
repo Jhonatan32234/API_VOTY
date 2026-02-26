@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"entgo.io/ent"
+	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
@@ -43,7 +44,11 @@ func (Vote) Edges() []ent.Edge {
         edge.From("poll", Poll.Type).
             Ref("votes").
             Unique().
-            Required(),
+            Required().
+            // AÑADE ESTO:
+            Annotations(entsql.Annotation{
+                OnDelete: entsql.Cascade,
+            }),
         
         // Qué opción específica seleccionó
         edge.From("poll_option", PollOption.Type).

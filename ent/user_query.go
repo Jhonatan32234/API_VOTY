@@ -3,13 +3,13 @@
 package ent
 
 import (
+	"api_voty/ent/predicate"
+	"api_voty/ent/user"
+	"api_voty/ent/vote"
 	"context"
 	"database/sql/driver"
 	"fmt"
 	"math"
-	"pruebas_doc/ent/predicate"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/ent/vote"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"

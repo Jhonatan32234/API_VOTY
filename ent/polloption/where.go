@@ -3,7 +3,7 @@
 package polloption
 
 import (
-	"pruebas_doc/ent/predicate"
+	"api_voty/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"

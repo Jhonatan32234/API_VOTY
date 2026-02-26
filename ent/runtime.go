@@ -3,11 +3,11 @@
 package ent
 
 import (
-	"pruebas_doc/ent/poll"
-	"pruebas_doc/ent/polloption"
-	"pruebas_doc/ent/schema"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/ent/vote"
+	"api_voty/ent/poll"
+	"api_voty/ent/polloption"
+	"api_voty/ent/schema"
+	"api_voty/ent/user"
+	"api_voty/ent/vote"
 	"time"
 )
 

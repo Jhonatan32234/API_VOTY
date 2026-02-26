@@ -1,13 +1,11 @@
 package api
 
 import (
+	"api_voty/internal/utils"
 	"context"
-	"pruebas_doc/internal/utils"
 
 	"github.com/danielgtaylor/huma/v2"
 )
-
-
 
 type VoteInput struct {
 	PollID   string `path:"poll_id" doc:"ID de la encuesta"`

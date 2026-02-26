@@ -24,7 +24,7 @@ func GenerateToken(userID, email string) (string, error) {
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
-			Issuer:    "pruebas_doc",
+			Issuer:    "api_voty",
 			Subject:   userID,
 		},
 	}
@@ -52,7 +52,7 @@ func ValidateToken(tokenString string) (*Claims, error) {
 type contextKey string
 
 const (
-	UserIDKey   contextKey = "user_id"
+	UserIDKey    contextKey = "user_id"
 	UserEmailKey contextKey = "user_email"
 )
 

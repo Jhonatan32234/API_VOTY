@@ -4,9 +4,9 @@ import (
 	"context"
 	"time"
 
+	"api_voty/ent"
+	"api_voty/ent/user"
 	"database/sql"
-	"pruebas_doc/ent"
-	"pruebas_doc/ent/user"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -41,10 +41,10 @@ type UserModel struct {
 }
 
 func NewUserModel(client *ent.Client, db *sql.DB) *UserModel {
-    return &UserModel{
-        client: client,
-        db:     db,
-    }
+	return &UserModel{
+		client: client,
+		db:     db,
+	}
 }
 
 func hashPassword(password string) (string, error) {
@@ -73,7 +73,7 @@ func (m *UserModel) Create(ctx context.Context, input UserInput) (*UserResponse,
 		SetCreatedAt(time.Now()).
 		SetUpdatedAt(time.Now()).
 		Save(ctx)
-	
+
 	if err != nil {
 		return nil, err
 	}
@@ -89,24 +89,24 @@ func (m *UserModel) Create(ctx context.Context, input UserInput) (*UserResponse,
 }
 
 func (m *UserModel) GetAll(ctx context.Context) ([]*UserResponse, error) {
-    query := "SELECT id, email, name, active, created_at, updated_at FROM users"
-    
-    rows, err := m.db.QueryContext(ctx, query)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
+	query := "SELECT id, email, name, active, created_at, updated_at FROM users"
 
-    var responses []*UserResponse
-    for rows.Next() {
-        u := &UserResponse{}
-        err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Active, &u.CreatedAt, &u.UpdatedAt)
-        if err != nil {
-            return nil, err
-        }
-        responses = append(responses, u)
-    }
-    return responses, nil
+	rows, err := m.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var responses []*UserResponse
+	for rows.Next() {
+		u := &UserResponse{}
+		err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Active, &u.CreatedAt, &u.UpdatedAt)
+		if err != nil {
+			return nil, err
+		}
+		responses = append(responses, u)
+	}
+	return responses, nil
 }
 
 func (m *UserModel) GetByID(ctx context.Context, id string) (*UserResponse, error) {
@@ -114,7 +114,7 @@ func (m *UserModel) GetByID(ctx context.Context, id string) (*UserResponse, erro
 		Query().
 		Where(user.ID(id)).
 		Only(ctx)
-	
+
 	if err != nil {
 		return nil, err
 	}

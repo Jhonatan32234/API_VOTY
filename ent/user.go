@@ -3,8 +3,8 @@
 package ent
 
 import (
+	"api_voty/ent/user"
 	"fmt"
-	"pruebas_doc/ent/user"
 	"strings"
 	"time"
 
