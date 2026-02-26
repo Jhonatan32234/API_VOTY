@@ -6,9 +6,9 @@ import (
 	"errors"
 	"time"
 
-	"pruebas_doc/ent"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/internal/utils"
+	"api_voty/ent"
+	"api_voty/ent/user"
+	"api_voty/internal/utils"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -32,7 +32,7 @@ type AuthResponse struct {
 
 type AuthModel struct {
 	client *ent.Client
-	db	 *sql.DB
+	db     *sql.DB
 }
 
 func NewAuthModel(client *ent.Client, db *sql.DB) *AuthModel {
@@ -120,7 +120,7 @@ func (m *AuthModel) GetUserByID(ctx context.Context, id string) (*UserResponse, 
 	u, err := m.client.User.Query().
 		Where(user.ID(id)).
 		Only(ctx)
-	
+
 	if err != nil {
 		return nil, err
 	}

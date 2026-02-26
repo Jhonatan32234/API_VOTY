@@ -3,14 +3,14 @@
 package ent
 
 import (
+	"api_voty/ent/poll"
+	"api_voty/ent/polloption"
+	"api_voty/ent/predicate"
+	"api_voty/ent/user"
+	"api_voty/ent/vote"
 	"context"
 	"fmt"
 	"math"
-	"pruebas_doc/ent/poll"
-	"pruebas_doc/ent/polloption"
-	"pruebas_doc/ent/predicate"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/ent/vote"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect/sql"

@@ -3,13 +3,13 @@
 package ent
 
 import (
+	"api_voty/ent/poll"
+	"api_voty/ent/polloption"
+	"api_voty/ent/user"
+	"api_voty/ent/vote"
 	"context"
 	"errors"
 	"fmt"
-	"pruebas_doc/ent/poll"
-	"pruebas_doc/ent/polloption"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/ent/vote"
 	"time"
 
 	"entgo.io/ent/dialect/sql/sqlgraph"

@@ -3,8 +3,8 @@ package api
 import (
 	"context"
 
-	"pruebas_doc/internal/models"
-	"pruebas_doc/internal/utils"
+	"api_voty/internal/models"
+	"api_voty/internal/utils"
 
 	"github.com/danielgtaylor/huma/v2"
 )
@@ -51,26 +51,26 @@ type ProfileResponse struct {
 }
 
 func (a *AuthAPI) GetProfile(ctx context.Context, req *struct{}) (*ProfileResponse, error) {
-    userID := utils.GetUserIDFromContext(ctx)
-    if userID == "" {
-        return nil, huma.Error401Unauthorized("Not authenticated")
-    }
+	userID := utils.GetUserIDFromContext(ctx)
+	if userID == "" {
+		return nil, huma.Error401Unauthorized("Not authenticated")
+	}
 
-    // LLAMADA REAL A LA DB
-    // Nota: Necesitarás que AuthAPI tenga acceso a userModel o usar una función de búsqueda
-    user, err := a.authModel.GetUserByID(ctx, userID) 
-    if err != nil {
-        return nil, huma.Error404NotFound("User not found")
-    }
-    
-    return &ProfileResponse{
-        Body: models.UserResponse{
-            ID:        user.ID,
-            Email:     user.Email,
-            Name:      user.Name,   // <--- Ahora viene de la DB
-            Active:    user.Active,
-            CreatedAt: user.CreatedAt,
-            UpdatedAt: user.UpdatedAt,
-        },
-    }, nil
+	// LLAMADA REAL A LA DB
+	// Nota: Necesitarás que AuthAPI tenga acceso a userModel o usar una función de búsqueda
+	user, err := a.authModel.GetUserByID(ctx, userID)
+	if err != nil {
+		return nil, huma.Error404NotFound("User not found")
+	}
+
+	return &ProfileResponse{
+		Body: models.UserResponse{
+			ID:        user.ID,
+			Email:     user.Email,
+			Name:      user.Name, // <--- Ahora viene de la DB
+			Active:    user.Active,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+		},
+	}, nil
 }

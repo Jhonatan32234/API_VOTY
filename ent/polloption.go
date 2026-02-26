@@ -3,9 +3,9 @@
 package ent
 
 import (
+	"api_voty/ent/poll"
+	"api_voty/ent/polloption"
 	"fmt"
-	"pruebas_doc/ent/poll"
-	"pruebas_doc/ent/polloption"
 	"strings"
 
 	"entgo.io/ent"

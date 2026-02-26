@@ -3,9 +3,9 @@
 package hook
 
 import (
+	"api_voty/ent"
 	"context"
 	"fmt"
-	"pruebas_doc/ent"
 )
 
 // The PollFunc type is an adapter to allow the use of ordinary

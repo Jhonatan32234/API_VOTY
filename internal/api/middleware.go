@@ -3,9 +3,10 @@ package api
 import (
 	"net/http"
 	"strings"
-	
+
+	"api_voty/internal/utils"
+
 	"github.com/danielgtaylor/huma/v2"
-	"pruebas_doc/internal/utils"
 )
 
 func AuthMiddleware(api huma.API) func(ctx huma.Context, next func(huma.Context)) {
@@ -31,7 +32,7 @@ func AuthMiddleware(api huma.API) func(ctx huma.Context, next func(huma.Context)
 		reqCtx := ctx.Context()
 		newCtx := utils.SetUserInContext(reqCtx, claims.UserID, claims.Email)
 		newHumaCtx := huma.WithContext(ctx, newCtx)
-		
+
 		next(newHumaCtx)
 	}
 }

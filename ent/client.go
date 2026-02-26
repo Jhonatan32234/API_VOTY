@@ -9,12 +9,12 @@ import (
 	"log"
 	"reflect"
 
-	"pruebas_doc/ent/migrate"
+	"api_voty/ent/migrate"
 
-	"pruebas_doc/ent/poll"
-	"pruebas_doc/ent/polloption"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/ent/vote"
+	"api_voty/ent/poll"
+	"api_voty/ent/polloption"
+	"api_voty/ent/user"
+	"api_voty/ent/vote"
 
 	"entgo.io/ent"
 	"entgo.io/ent/dialect"

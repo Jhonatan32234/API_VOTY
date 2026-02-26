@@ -1,12 +1,12 @@
 package models
 
 import (
+	"api_voty/ent"
+	"api_voty/ent/poll"
+	"api_voty/ent/user"
+	"api_voty/ent/vote"
 	"context"
 	"errors"
-	"pruebas_doc/ent"
-	"pruebas_doc/ent/poll"
-	"pruebas_doc/ent/user"
-	"pruebas_doc/ent/vote"
 	"strconv"
 	"time"
 )
@@ -19,12 +19,14 @@ func NewPollModel(client *ent.Client) *PollModel {
 	return &PollModel{client: client}
 }
 
-func (m *PollModel) CastVote(ctx context.Context, pollIDStr, optionIDStr, userID string) (int, error) {	// Iniciamos Transacción (Atomicidad)
+func (m *PollModel) CastVote(ctx context.Context, pollIDStr, optionIDStr, userID string) (int, error) { // Iniciamos Transacción (Atomicidad)
 	pollID, _ := strconv.Atoi(pollIDStr)
-    optionID, _ := strconv.Atoi(optionIDStr)
+	optionID, _ := strconv.Atoi(optionIDStr)
 
 	tx, err := m.client.Tx(ctx)
-	if err != nil { return 0, err }
+	if err != nil {
+		return 0, err
+	}
 
 	// 1. Verificar si la encuesta está abierta
 	p, err := tx.Poll.Query().Where(poll.ID(pollID)).Only(ctx)
@@ -38,7 +40,7 @@ func (m *PollModel) CastVote(ctx context.Context, pollIDStr, optionIDStr, userID
 	exists, _ := tx.Vote.Query().
 		Where(vote.HasUserWith(user.ID(userID)), vote.HasPollWith(poll.ID(pollID))).
 		Exist(ctx)
-	
+
 	if exists {
 		tx.Rollback()
 		return 0, errors.New("ALREADY_VOTED") // El móvil dispara el Rollback con esto
@@ -50,20 +52,27 @@ func (m *PollModel) CastVote(ctx context.Context, pollIDStr, optionIDStr, userID
 		SetPollID(pollID).
 		SetPollOptionID(optionID).
 		Save(ctx)
-	if err != nil { tx.Rollback(); return 0, err }
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
 
 	// 4. Incrementar contador en la opción
 	opt, err := tx.PollOption.UpdateOneID(optionID).
 		AddVotesCount(1).
 		Save(ctx)
-	if err != nil { tx.Rollback(); return 0, err }
+	if err != nil {
+		tx.Rollback()
+		return 0, err
+	}
 
 	// Confirmar todo
-	if err := tx.Commit(); err != nil { return 0, err }
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
 
 	return opt.VotesCount, nil
 }
-
 
 // Create crea la cabecera de la encuesta
 func (m *PollModel) Create(ctx context.Context, title string) (*ent.Poll, error) {
@@ -103,8 +112,33 @@ func (m *PollModel) ListAllWithUserStatus(ctx context.Context, userID string) ([
 		WithOptions().
 		WithVotes(func(q *ent.VoteQuery) {
 			q.Where(vote.HasUserWith(user.ID(userID))).
-			  WithPollOption()
+				WithPollOption()
 		}).
 		Order(ent.Desc(poll.FieldCreatedAt)).
 		All(ctx)
+}
+
+// Update actualiza el título o el estado de una encuesta
+func (m *PollModel) Update(ctx context.Context, id string, title string, isOpen bool) error {
+	pollID, err := strconv.Atoi(id)
+	if err != nil {
+		return err
+	}
+	return m.client.Poll.
+		UpdateOneID(pollID).
+		SetTitle(title).
+		SetIsOpen(isOpen).
+		Exec(ctx)
+}
+
+// Delete elimina una encuesta y, dependiendo de tu esquema,
+// Ent puede manejar el "Cascade Delete" de opciones y votos.
+func (m *PollModel) Delete(ctx context.Context, id string) error {
+	pollID, err := strconv.Atoi(id)
+	if err != nil {
+		return err
+	}
+	return m.client.Poll.
+		DeleteOneID(pollID).
+		Exec(ctx)
 }

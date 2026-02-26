@@ -1,4 +1,4 @@
-module pruebas_doc
+module api_voty
 
 go 1.25.6
 

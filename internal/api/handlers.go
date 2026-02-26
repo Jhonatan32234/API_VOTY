@@ -1,11 +1,11 @@
 package api
 
 import (
+	"api_voty/internal/models"
+	"api_voty/internal/utils"
 	"context"
 	"fmt"
 	"net/http"
-	"pruebas_doc/internal/models"
-	"pruebas_doc/internal/utils"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -13,21 +13,21 @@ import (
 )
 
 var upgrader = websocket.Upgrader{
-    CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
 type UserAPI struct {
-    userModel *models.UserModel
-    pollModel *models.PollModel
-    Hub       *Hub            
+	userModel *models.UserModel
+	pollModel *models.PollModel
+	Hub       *Hub
 }
 
 func NewUserAPI(userModel *models.UserModel, pollModel *models.PollModel, hub *Hub) *UserAPI {
-    return &UserAPI{
-        userModel: userModel,
-        pollModel: pollModel,
-        Hub:       hub,
-    }
+	return &UserAPI{
+		userModel: userModel,
+		pollModel: pollModel,
+		Hub:       hub,
+	}
 }
 
 type CreateUserRequest struct {
@@ -70,8 +70,9 @@ type PollOutput struct {
 	ID               string         `json:"id"`
 	Title            string         `json:"title"`
 	Options          []OptionOutput `json:"options"`
-	Voted            bool           `json:"voted"`             // ¿El usuario ya votó?
-	SelectedOptionID string         `json:"selected_option_id,omitempty"` // ¿Por cuál votó?
+	Voted            bool           `json:"voted"`
+	SelectedOptionID string         `json:"selected_option_id,omitempty"`
+	IsOpen           bool           `json:"is_open"`
 }
 
 type OptionOutput struct {
@@ -84,9 +85,37 @@ type ListPollsResponse struct {
 	Body []PollOutput
 }
 
+type UpdatePollRequest struct {
+	ID   string `path:"id" doc:"ID de la encuesta"`
+	Body struct {
+		Title  string `json:"title"`
+		IsOpen bool   `json:"is_open"`
+	}
+}
+
+func (a *UserAPI) UpdatePoll(ctx context.Context, input *UpdatePollRequest) (*struct{}, error) {
+	err := a.pollModel.Update(ctx, input.ID, input.Body.Title, input.Body.IsOpen)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Error al actualizar encuesta", err)
+	}
+	return nil, nil
+}
+
+type DeletePollRequest struct {
+	ID string `path:"id" doc:"ID de la encuesta a eliminar"`
+}
+
+func (a *UserAPI) DeletePoll(ctx context.Context, input *DeletePollRequest) (*struct{}, error) {
+	err := a.pollModel.Delete(ctx, input.ID)
+	if err != nil {
+		return nil, huma.Error500InternalServerError("Error al eliminar encuesta", err)
+	}
+	return nil, nil
+}
+
 func (a *UserAPI) ListPolls(ctx context.Context, input *struct{}) (*ListPollsResponse, error) {
 	// Obtenemos el ID del usuario desde el JWT
-    userID := utils.GetUserIDFromContext(ctx)
+	userID := utils.GetUserIDFromContext(ctx)
 	polls, err := a.pollModel.ListAllWithUserStatus(ctx, userID)
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Error al listar", err)
@@ -97,24 +126,25 @@ func (a *UserAPI) ListPolls(ctx context.Context, input *struct{}) (*ListPollsRes
 		voted := len(p.Edges.Votes) > 0
 		var selectedID string
 		if voted {
-            // p.Edges.Votes[0] es el voto del usuario
-            // .Edges.PollOption es la relación cargada gracias al .WithPollOption() anterior
-            if p.Edges.Votes[0].Edges.PollOption != nil {
-                selectedID = fmt.Sprintf("%d", p.Edges.Votes[0].Edges.PollOption.ID)
-            }
-        } 
+			// p.Edges.Votes[0] es el voto del usuario
+			// .Edges.PollOption es la relación cargada gracias al .WithPollOption() anterior
+			if p.Edges.Votes[0].Edges.PollOption != nil {
+				selectedID = fmt.Sprintf("%d", p.Edges.Votes[0].Edges.PollOption.ID)
+			}
+		}
 
 		opts := make([]OptionOutput, len(p.Edges.Options))
 		for j, o := range p.Edges.Options {
 			opts[j] = OptionOutput{ID: fmt.Sprintf("%d", o.ID), Text: o.Text, VotesCount: o.VotesCount}
 		}
-		
+
 		output[i] = PollOutput{
 			ID:               fmt.Sprintf("%d", p.ID),
 			Title:            p.Title,
 			Options:          opts,
 			Voted:            voted,
 			SelectedOptionID: selectedID,
+			IsOpen:           p.IsOpen,
 		}
 	}
 
@@ -122,28 +152,28 @@ func (a *UserAPI) ListPolls(ctx context.Context, input *struct{}) (*ListPollsRes
 }
 
 func (a *UserAPI) SubscribeVotes(w http.ResponseWriter, r *http.Request) {
-    conn, err := upgrader.Upgrade(w, r, nil)
-    if err != nil {
-        return
-    }
+	conn, err := upgrader.Upgrade(w, r, nil)
+	if err != nil {
+		return
+	}
 
-    // Canal local para este cliente específico
-    clientChan := make(chan VoteUpdate)
-    a.Hub.Register <- clientChan
+	// Canal local para este cliente específico
+	clientChan := make(chan VoteUpdate)
+	a.Hub.Register <- clientChan
 
-    // Asegurar limpieza al desconectar
-    defer func() {
-        a.Hub.Unregister <- clientChan
-        conn.Close()
-    }()
+	// Asegurar limpieza al desconectar
+	defer func() {
+		a.Hub.Unregister <- clientChan
+		conn.Close()
+	}()
 
-    // Escuchar actualizaciones del Hub y enviarlas al móvil
-    for update := range clientChan {
-        err := conn.WriteJSON(update)
-        if err != nil {
-            break // Si falla la escritura (ej: el móvil perdió señal), cerramos
-        }
-    }
+	// Escuchar actualizaciones del Hub y enviarlas al móvil
+	for update := range clientChan {
+		err := conn.WriteJSON(update)
+		if err != nil {
+			break // Si falla la escritura (ej: el móvil perdió señal), cerramos
+		}
+	}
 }
 
 // Estructura para recibir los datos
@@ -191,12 +221,12 @@ func (a *UserAPI) ListUsers(ctx context.Context, req *struct{}) (*UsersResponse,
 	if err != nil {
 		return nil, huma.Error500InternalServerError("Error fetching users", err)
 	}
-	
+
 	responseUsers := make([]models.UserResponse, len(users))
 	for i, u := range users {
 		responseUsers[i] = *u
 	}
-	
+
 	return &UsersResponse{Body: responseUsers}, nil
 }
 
@@ -244,9 +274,9 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 			Description:  "Ingresa tu token JWT en el formato: Bearer <token>",
 		},
 	}
-	
+
 	app := humago.New(router, config)
-	
+
 	huma.Register(app, huma.Operation{
 		OperationID: "register",
 		Method:      http.MethodPost,
@@ -255,7 +285,7 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Summary:     "Register new user",
 		Tags:        []string{"Auth"},
 	}, authAPI.Register)
-	
+
 	huma.Register(app, huma.Operation{
 		OperationID: "login",
 		Method:      http.MethodPost,
@@ -263,7 +293,7 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Summary:     "Login user",
 		Tags:        []string{"Auth"},
 	}, authAPI.Login)
-	
+
 	huma.Register(app, huma.Operation{
 		OperationID: "get-profile",
 		Method:      http.MethodGet,
@@ -272,10 +302,10 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Tags:        []string{"Users"},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{
-			AuthMiddleware(app), 
+			AuthMiddleware(app),
 		},
 	}, authAPI.GetProfile)
-	
+
 	huma.Register(app, huma.Operation{
 		OperationID: "list-users",
 		Method:      http.MethodGet,
@@ -287,7 +317,7 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 			AuthMiddleware(app),
 		},
 	}, userAPI.ListUsers)
-	
+
 	huma.Register(app, huma.Operation{
 		OperationID: "get-user",
 		Method:      http.MethodGet,
@@ -296,10 +326,10 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Tags:        []string{"Users"},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{
-        AuthMiddleware(app), // <-- Pásalo directamente así
-        },
+			AuthMiddleware(app), // <-- Pásalo directamente así
+		},
 	}, userAPI.GetUser)
-	
+
 	huma.Register(app, huma.Operation{
 		OperationID: "update-user",
 		Method:      http.MethodPut,
@@ -308,10 +338,10 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Tags:        []string{"Users"},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{
-        AuthMiddleware(app),
-        },
+			AuthMiddleware(app),
+		},
 	}, userAPI.UpdateUser)
-	
+
 	huma.Register(app, huma.Operation{
 		OperationID: "delete-user",
 		Method:      http.MethodDelete,
@@ -320,41 +350,62 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Tags:        []string{"Users"},
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{
-        AuthMiddleware(app),
-        },
+			AuthMiddleware(app),
+		},
 	}, userAPI.DeleteUser)
 
 	huma.Register(app, huma.Operation{
-        OperationID: "post-vote",
-        Method:      http.MethodPost,
-        Path:        "/polls/{poll_id}/vote/{option_id}",
-        Summary:     "Emitir un voto",
+		OperationID: "post-vote",
+		Method:      http.MethodPost,
+		Path:        "/polls/{poll_id}/vote/{option_id}",
+		Summary:     "Emitir un voto",
 		Tags:        []string{"Voting"},
+		Security:    []map[string][]string{{"bearerAuth": {}}},
+		Middlewares: huma.Middlewares{AuthMiddleware(app)},
+	}, userAPI.PostVote)
 
-        Security:    []map[string][]string{{"bearerAuth": {}}},
-        Middlewares: huma.Middlewares{AuthMiddleware(app)},
-    }, userAPI.PostVote)
-
-    router.HandleFunc("/ws/votes", userAPI.SubscribeVotes)
+	router.HandleFunc("/ws/votes", userAPI.SubscribeVotes)
 
 	huma.Register(app, huma.Operation{
-    OperationID: "create-poll",
-    Method:      http.MethodPost,
-    Path:        "/polls",
-    Summary:     "Crear una nueva encuesta",
-    Description: "Crea una encuesta con sus opciones iniciales. Solo para administradores (en el futuro).",
-    Tags:        []string{"Voting"},
-    Security:    []map[string][]string{{"bearerAuth": {}}},
-    Middlewares: huma.Middlewares{AuthMiddleware(app)},
-}, userAPI.CreatePoll)
+		OperationID: "create-poll",
+		Method:      http.MethodPost,
+		Path:        "/polls",
+		Summary:     "Crear una nueva encuesta",
+		Description: "Crea una encuesta con sus opciones iniciales. Solo para administradores (en el futuro).",
+		Tags:        []string{"Voting"},
+		Security:    []map[string][]string{{"bearerAuth": {}}},
+		Middlewares: huma.Middlewares{AuthMiddleware(app)},
+	}, userAPI.CreatePoll)
 
-huma.Register(app, huma.Operation{
-    OperationID: "list-polls",
-    Method:      http.MethodGet,
-    Path:        "/polls",
-    Summary:     "Listar encuestas",
-    Tags:        []string{"Voting"},
-	Security:    []map[string][]string{{"bearerAuth": {}}},
-	Middlewares: huma.Middlewares{AuthMiddleware(app)},
-}, userAPI.ListPolls)
+	huma.Register(app, huma.Operation{
+		OperationID: "list-polls",
+		Method:      http.MethodGet,
+		Path:        "/polls",
+		Summary:     "Listar encuestas",
+		Tags:        []string{"Voting"},
+		Security:    []map[string][]string{{"bearerAuth": {}}},
+		Middlewares: huma.Middlewares{AuthMiddleware(app)},
+	}, userAPI.ListPolls)
+
+	// Actualizar Encuesta
+	huma.Register(app, huma.Operation{
+		OperationID: "update-poll",
+		Method:      http.MethodPut,
+		Path:        "/polls/{id}",
+		Summary:     "Actualizar encuesta",
+		Tags:        []string{"Voting"},
+		Security:    []map[string][]string{{"bearerAuth": {}}},
+		Middlewares: huma.Middlewares{AuthMiddleware(app)},
+	}, userAPI.UpdatePoll)
+
+	// Eliminar Encuesta
+	huma.Register(app, huma.Operation{
+		OperationID: "delete-poll",
+		Method:      http.MethodDelete,
+		Path:        "/polls/{id}",
+		Summary:     "Eliminar encuesta",
+		Tags:        []string{"Voting"},
+		Security:    []map[string][]string{{"bearerAuth": {}}},
+		Middlewares: huma.Middlewares{AuthMiddleware(app)},
+	}, userAPI.DeletePoll)
 }

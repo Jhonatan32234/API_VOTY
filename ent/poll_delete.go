@@ -3,9 +3,9 @@
 package ent
 
 import (
+	"api_voty/ent/poll"
+	"api_voty/ent/predicate"
 	"context"
-	"pruebas_doc/ent/poll"
-	"pruebas_doc/ent/predicate"
 
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
