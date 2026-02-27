@@ -87,19 +87,26 @@ type ListPollsResponse struct {
 }
 
 type UpdatePollRequest struct {
-	ID   string `path:"id" doc:"ID de la encuesta"`
+	ID   string `path:"id"`
 	Body struct {
-		Title  string `json:"title"`
-		IsOpen bool   `json:"is_open"`
+		Title   string   `json:"title"`
+		IsOpen  bool     `json:"is_open"`
+		Options []string `json:"options,omitempty"`
 	}
 }
 
-func (a *UserAPI) UpdatePoll(ctx context.Context, input *UpdatePollRequest) (*struct{}, error) {
-	err := a.pollModel.Update(ctx, input.ID, input.Body.Title, input.Body.IsOpen)
+func (a *UserAPI) UpdatePoll(ctx context.Context, input *UpdatePollRequest) (*GetPollResponse, error) {
+	pollID, _ := strconv.Atoi(input.ID)
+	
+	p, err := a.pollModel.Update(ctx, pollID, input.Body.Title, input.Body.IsOpen, input.Body.Options)
 	if err != nil {
-		return nil, huma.Error500InternalServerError("Error al actualizar encuesta", err)
+		return nil, huma.Error500InternalServerError("Error al actualizar", err)
 	}
-	return nil, nil
+	println(p)
+
+	// Mapeamos a PollOutput (Reutilizando la lógica de GetPoll)
+    // Esto asegura que el "voted" y "selected_option_id" se mantengan correctos
+	return a.GetPoll(ctx, &GetPollRequest{ID: input.ID}) 
 }
 
 type GetPollRequest struct {

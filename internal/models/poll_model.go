@@ -3,6 +3,7 @@ package models
 import (
 	"api_voty/ent"
 	"api_voty/ent/poll"
+	"api_voty/ent/polloption"
 	"api_voty/ent/user"
 	"api_voty/ent/vote"
 	"context"
@@ -131,18 +132,56 @@ func (m *PollModel) ListAllWithUserStatus(ctx context.Context, userID string) ([
 }
 
 // Update actualiza el título o el estado de una encuesta
-func (m *PollModel) Update(ctx context.Context, id string, title string, isOpen bool) error {
-	pollID, err := strconv.Atoi(id)
-	if err != nil {
-		return err
-	}
-	return m.client.Poll.
-		UpdateOneID(pollID).
-		SetTitle(title).
-		SetIsOpen(isOpen).
-		Exec(ctx)
-}
+func (m *PollModel) Update(ctx context.Context, id int, title string, isOpen bool, options []string) (*ent.Poll, error) {
+    // Usamos una transacción porque vamos a tocar varias tablas
+    tx, err := m.client.Tx(ctx)
+    if err != nil {
+        return nil, err
+    }
 
+    // 1. Actualizar datos básicos de la encuesta
+    p, err := tx.Poll.UpdateOneID(id).
+        SetTitle(title).
+        SetIsOpen(isOpen).
+        Save(ctx)
+    if err != nil {
+        tx.Rollback()
+        return nil, err
+    }
+	println(p)
+
+    // 2. Si vienen opciones, sincronizamos (Borrar antiguas y crear nuevas)
+    // Nota: Solo haz esto si no hay votos o si decides resetear la encuesta
+    if options != nil {
+        // Borrar opciones actuales
+        _, err = tx.PollOption.Delete().
+            Where(polloption.HasPollWith(poll.ID(id))).
+            Exec(ctx)
+        if err != nil {
+            tx.Rollback()
+            return nil, err
+        }
+
+        // Crear las nuevas opciones
+        bulk := make([]*ent.PollOptionCreate, len(options))
+        for i, txt := range options {
+            bulk[i] = tx.PollOption.Create().SetText(txt).SetPollID(id)
+        }
+        err = tx.PollOption.CreateBulk(bulk...).Exec(ctx)
+        if err != nil {
+            tx.Rollback()
+            return nil, err
+        }
+    }
+
+    err = tx.Commit()
+    if err != nil {
+        return nil, err
+    }
+
+    // Devolvemos la encuesta con los cambios cargados (Eager load)
+    return m.client.Poll.Query().Where(poll.ID(id)).WithOptions().Only(ctx)
+}
 // Delete elimina una encuesta y, dependiendo de tu esquema,
 // Ent puede manejar el "Cascade Delete" de opciones y votos.
 func (m *PollModel) Delete(ctx context.Context, id string) error {
