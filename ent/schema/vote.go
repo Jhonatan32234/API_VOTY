@@ -31,29 +31,29 @@ func (Vote) Fields() []ent.Field {
     }
 }
 
-// Edges of the Vote.
 func (Vote) Edges() []ent.Edge {
     return []ent.Edge{
-        // Quién emitió el voto
         edge.From("user", User.Type).
             Ref("votes").
             Unique().
             Required(),
         
-        // En qué encuesta participó
         edge.From("poll", Poll.Type).
             Ref("votes").
             Unique().
             Required().
-            // AÑADE ESTO:
             Annotations(entsql.Annotation{
                 OnDelete: entsql.Cascade,
             }),
         
-        // Qué opción específica seleccionó
+        // ESTA ES LA RELACIÓN QUE FALLA (Voto -> Opción)
         edge.From("poll_option", PollOption.Type).
             Ref("votes").
             Unique().
-            Required(),
+            Required().
+            // AÑADE ESTO AQUÍ TAMBIÉN:
+            Annotations(entsql.Annotation{
+                OnDelete: entsql.Cascade,
+            }),
     }
 }
