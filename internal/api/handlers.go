@@ -466,6 +466,7 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{AuthMiddleware(app)},
 	}, userAPI.DeletePoll)
+	
 	huma.Register(app, huma.Operation{
     OperationID: "get-poll-by-id",
     Method:      http.MethodGet,
