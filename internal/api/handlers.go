@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humago"
@@ -99,6 +100,56 @@ func (a *UserAPI) UpdatePoll(ctx context.Context, input *UpdatePollRequest) (*st
 		return nil, huma.Error500InternalServerError("Error al actualizar encuesta", err)
 	}
 	return nil, nil
+}
+
+type GetPollRequest struct {
+	ID string `path:"id" doc:"ID de la encuesta"`
+}
+
+type GetPollResponse struct {
+	Body PollOutput
+}
+
+func (a *UserAPI) GetPoll(ctx context.Context, input *GetPollRequest) (*GetPollResponse, error) {
+	// Convertimos el ID de string a int (asumiendo que tus IDs son enteros)
+	pollID, err := strconv.Atoi(input.ID)
+	if err != nil {
+		return nil, huma.Error400BadRequest("ID de encuesta inválido", err)
+	}
+
+	userID := utils.GetUserIDFromContext(ctx)
+	
+	p, err := a.pollModel.GetByIDWithUserStatus(ctx, pollID, userID)
+	if err != nil {
+		return nil, huma.Error404NotFound("Encuesta no encontrada", err)
+	}
+
+	// Reutilizamos la lógica de mapeo
+	voted := len(p.Edges.Votes) > 0
+	var selectedID string
+	if voted && p.Edges.Votes[0].Edges.PollOption != nil {
+		selectedID = fmt.Sprintf("%d", p.Edges.Votes[0].Edges.PollOption.ID)
+	}
+
+	opts := make([]OptionOutput, len(p.Edges.Options))
+	for j, o := range p.Edges.Options {
+		opts[j] = OptionOutput{
+			ID:         fmt.Sprintf("%d", o.ID),
+			Text:       o.Text,
+			VotesCount: o.VotesCount,
+		}
+	}
+
+	return &GetPollResponse{
+		Body: PollOutput{
+			ID:               fmt.Sprintf("%d", p.ID),
+			Title:            p.Title,
+			Options:          opts,
+			Voted:            voted,
+			SelectedOptionID: selectedID,
+			IsOpen:           p.IsOpen,
+		},
+	}, nil
 }
 
 type DeletePollRequest struct {
@@ -408,4 +459,13 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 		Security:    []map[string][]string{{"bearerAuth": {}}},
 		Middlewares: huma.Middlewares{AuthMiddleware(app)},
 	}, userAPI.DeletePoll)
+	huma.Register(app, huma.Operation{
+    OperationID: "get-poll-by-id",
+    Method:      http.MethodGet,
+    Path:        "/polls/{id}",
+    Summary:     "Obtener detalle de una encuesta",
+    Tags:        []string{"Voting"},
+    Security:    []map[string][]string{{"bearerAuth": {}}},
+    Middlewares: huma.Middlewares{AuthMiddleware(app)},
+}, userAPI.GetPoll)
 }

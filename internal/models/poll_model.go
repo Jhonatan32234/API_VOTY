@@ -74,6 +74,18 @@ func (m *PollModel) CastVote(ctx context.Context, pollIDStr, optionIDStr, userID
 	return opt.VotesCount, nil
 }
 
+
+func (m *PollModel) GetByIDWithUserStatus(ctx context.Context, pollID int, userID string) (*ent.Poll, error) {
+	return m.client.Poll.
+		Query().
+		Where(poll.ID(pollID)).
+		WithOptions().
+		WithVotes(func(q *ent.VoteQuery) {
+			q.Where(vote.HasUserWith(user.IDEQ(userID))).WithPollOption()
+		}).
+		Only(ctx)
+}
+
 // Create crea la cabecera de la encuesta
 func (m *PollModel) Create(ctx context.Context, title string) (*ent.Poll, error) {
 	return m.client.Poll.
