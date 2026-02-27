@@ -185,11 +185,45 @@ func (m *PollModel) Update(ctx context.Context, id int, title string, isOpen boo
 // Delete elimina una encuesta y, dependiendo de tu esquema,
 // Ent puede manejar el "Cascade Delete" de opciones y votos.
 func (m *PollModel) Delete(ctx context.Context, id string) error {
-	pollID, err := strconv.Atoi(id)
-	if err != nil {
-		return err
-	}
-	return m.client.Poll.
-		DeleteOneID(pollID).
-		Exec(ctx)
+    pollID, err := strconv.Atoi(id)
+    if err != nil {
+        return err
+    }
+
+    // 1. Iniciamos una transacción para que el borrado sea atómico
+    tx, err := m.client.Tx(ctx)
+    if err != nil {
+        return err
+    }
+
+    // 2. Borrar los votos asociados a esta encuesta primero
+    // Importante: Usamos 'tx' en lugar de 'm.client'
+    _, err = tx.Vote.Delete().
+        Where(vote.HasPollWith(poll.ID(pollID))).
+        Exec(ctx)
+    if err != nil {
+        tx.Rollback()
+        return err
+    }
+
+    // 3. Borrar las opciones de la encuesta
+    _, err = tx.PollOption.Delete().
+        Where(polloption.HasPollWith(poll.ID(pollID))).
+        Exec(ctx)
+    if err != nil {
+        tx.Rollback()
+        return err
+    }
+
+    // 4. Ahora que no hay dependencias, borramos la encuesta
+    err = tx.Poll.
+        DeleteOneID(pollID).
+        Exec(ctx)
+    if err != nil {
+        tx.Rollback()
+        return err
+    }
+
+    // 5. Consolidamos los cambios
+    return tx.Commit()
 }
