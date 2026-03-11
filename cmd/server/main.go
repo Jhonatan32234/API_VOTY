@@ -73,7 +73,7 @@ func main() {
 	userModel := models.NewUserModel(client, db)
 
 	authModel := models.NewAuthModel(client, db)
-	authAPI := api.NewAuthAPI(authModel)
+	authAPI := api.NewAuthAPI(authModel,userModel)
 	userAPI := api.NewUserAPI(userModel, pollModel, hub)
 
 	mux := http.NewServeMux()

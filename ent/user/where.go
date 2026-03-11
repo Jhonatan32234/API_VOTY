@@ -65,6 +65,11 @@ func IDContainsFold(id string) predicate.User {
 	return predicate.User(sql.FieldContainsFold(FieldID, id))
 }
 
+// AvatarImage applies equality check predicate on the "avatar_image" field. It's identical to AvatarImageEQ.
+func AvatarImage(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldAvatarImage, v))
+}
+
 // Email applies equality check predicate on the "email" field. It's identical to EmailEQ.
 func Email(v string) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldEmail, v))
@@ -93,6 +98,81 @@ func CreatedAt(v time.Time) predicate.User {
 // UpdatedAt applies equality check predicate on the "updated_at" field. It's identical to UpdatedAtEQ.
 func UpdatedAt(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldUpdatedAt, v))
+}
+
+// AvatarImageEQ applies the EQ predicate on the "avatar_image" field.
+func AvatarImageEQ(v string) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldAvatarImage, v))
+}
+
+// AvatarImageNEQ applies the NEQ predicate on the "avatar_image" field.
+func AvatarImageNEQ(v string) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldAvatarImage, v))
+}
+
+// AvatarImageIn applies the In predicate on the "avatar_image" field.
+func AvatarImageIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldIn(FieldAvatarImage, vs...))
+}
+
+// AvatarImageNotIn applies the NotIn predicate on the "avatar_image" field.
+func AvatarImageNotIn(vs ...string) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldAvatarImage, vs...))
+}
+
+// AvatarImageGT applies the GT predicate on the "avatar_image" field.
+func AvatarImageGT(v string) predicate.User {
+	return predicate.User(sql.FieldGT(FieldAvatarImage, v))
+}
+
+// AvatarImageGTE applies the GTE predicate on the "avatar_image" field.
+func AvatarImageGTE(v string) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldAvatarImage, v))
+}
+
+// AvatarImageLT applies the LT predicate on the "avatar_image" field.
+func AvatarImageLT(v string) predicate.User {
+	return predicate.User(sql.FieldLT(FieldAvatarImage, v))
+}
+
+// AvatarImageLTE applies the LTE predicate on the "avatar_image" field.
+func AvatarImageLTE(v string) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldAvatarImage, v))
+}
+
+// AvatarImageContains applies the Contains predicate on the "avatar_image" field.
+func AvatarImageContains(v string) predicate.User {
+	return predicate.User(sql.FieldContains(FieldAvatarImage, v))
+}
+
+// AvatarImageHasPrefix applies the HasPrefix predicate on the "avatar_image" field.
+func AvatarImageHasPrefix(v string) predicate.User {
+	return predicate.User(sql.FieldHasPrefix(FieldAvatarImage, v))
+}
+
+// AvatarImageHasSuffix applies the HasSuffix predicate on the "avatar_image" field.
+func AvatarImageHasSuffix(v string) predicate.User {
+	return predicate.User(sql.FieldHasSuffix(FieldAvatarImage, v))
+}
+
+// AvatarImageIsNil applies the IsNil predicate on the "avatar_image" field.
+func AvatarImageIsNil() predicate.User {
+	return predicate.User(sql.FieldIsNull(FieldAvatarImage))
+}
+
+// AvatarImageNotNil applies the NotNil predicate on the "avatar_image" field.
+func AvatarImageNotNil() predicate.User {
+	return predicate.User(sql.FieldNotNull(FieldAvatarImage))
+}
+
+// AvatarImageEqualFold applies the EqualFold predicate on the "avatar_image" field.
+func AvatarImageEqualFold(v string) predicate.User {
+	return predicate.User(sql.FieldEqualFold(FieldAvatarImage, v))
+}
+
+// AvatarImageContainsFold applies the ContainsFold predicate on the "avatar_image" field.
+func AvatarImageContainsFold(v string) predicate.User {
+	return predicate.User(sql.FieldContainsFold(FieldAvatarImage, v))
 }
 
 // EmailEQ applies the EQ predicate on the "email" field.

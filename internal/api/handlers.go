@@ -59,6 +59,7 @@ type UpdateUserRequest struct {
 		Name     *string `json:"name,omitempty" example:"Jane Doe"`
 		Password *string `json:"password,omitempty" example:"newpass123"`
 		Active   *bool   `json:"active,omitempty" example:"false"`
+		Avatar   *string `json:"avatar,omitempty"`
 	}
 }
 
@@ -158,6 +159,7 @@ func (a *UserAPI) GetPoll(ctx context.Context, input *GetPollRequest) (*GetPollR
 		},
 	}, nil
 }
+
 
 type DeletePollRequest struct {
 	ID string `path:"id" doc:"ID de la encuesta a eliminar"`
@@ -302,6 +304,7 @@ func (a *UserAPI) UpdateUser(ctx context.Context, req *UpdateUserRequest) (*User
 		Name:     req.Body.Name,
 		Password: req.Body.Password,
 		Active:   req.Body.Active,
+		Avatar:   req.Body.Avatar,
 	}
 
 	user, err := a.userModel.Update(ctx, req.ID, input)

@@ -29,6 +29,26 @@ func (_u *UserUpdate) Where(ps ...predicate.User) *UserUpdate {
 	return _u
 }
 
+// SetAvatarImage sets the "avatar_image" field.
+func (_u *UserUpdate) SetAvatarImage(v string) *UserUpdate {
+	_u.mutation.SetAvatarImage(v)
+	return _u
+}
+
+// SetNillableAvatarImage sets the "avatar_image" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableAvatarImage(v *string) *UserUpdate {
+	if v != nil {
+		_u.SetAvatarImage(*v)
+	}
+	return _u
+}
+
+// ClearAvatarImage clears the value of the "avatar_image" field.
+func (_u *UserUpdate) ClearAvatarImage() *UserUpdate {
+	_u.mutation.ClearAvatarImage()
+	return _u
+}
+
 // SetEmail sets the "email" field.
 func (_u *UserUpdate) SetEmail(v string) *UserUpdate {
 	_u.mutation.SetEmail(v)
@@ -177,6 +197,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			}
 		}
 	}
+	if value, ok := _u.mutation.AvatarImage(); ok {
+		_spec.SetField(user.FieldAvatarImage, field.TypeString, value)
+	}
+	if _u.mutation.AvatarImageCleared() {
+		_spec.ClearField(user.FieldAvatarImage, field.TypeString)
+	}
 	if value, ok := _u.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
 	}
@@ -255,6 +281,26 @@ type UserUpdateOne struct {
 	fields   []string
 	hooks    []Hook
 	mutation *UserMutation
+}
+
+// SetAvatarImage sets the "avatar_image" field.
+func (_u *UserUpdateOne) SetAvatarImage(v string) *UserUpdateOne {
+	_u.mutation.SetAvatarImage(v)
+	return _u
+}
+
+// SetNillableAvatarImage sets the "avatar_image" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableAvatarImage(v *string) *UserUpdateOne {
+	if v != nil {
+		_u.SetAvatarImage(*v)
+	}
+	return _u
+}
+
+// ClearAvatarImage clears the value of the "avatar_image" field.
+func (_u *UserUpdateOne) ClearAvatarImage() *UserUpdateOne {
+	_u.mutation.ClearAvatarImage()
+	return _u
 }
 
 // SetEmail sets the "email" field.
@@ -434,6 +480,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 				ps[i](selector)
 			}
 		}
+	}
+	if value, ok := _u.mutation.AvatarImage(); ok {
+		_spec.SetField(user.FieldAvatarImage, field.TypeString, value)
+	}
+	if _u.mutation.AvatarImageCleared() {
+		_spec.ClearField(user.FieldAvatarImage, field.TypeString)
 	}
 	if value, ok := _u.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
