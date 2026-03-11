@@ -11,10 +11,11 @@ import (
 
 type AuthAPI struct {
 	authModel *models.AuthModel
+	userModel *models.UserModel
 }
 
-func NewAuthAPI(authModel *models.AuthModel) *AuthAPI {
-	return &AuthAPI{authModel: authModel}
+func NewAuthAPI(authModel *models.AuthModel, userModel *models.UserModel) *AuthAPI {
+	return &AuthAPI{authModel: authModel,userModel: userModel,}
 }
 
 type RegisterRequest struct {
@@ -50,27 +51,15 @@ type ProfileResponse struct {
 	Body models.UserResponse
 }
 
-func (a *AuthAPI) GetProfile(ctx context.Context, req *struct{}) (*ProfileResponse, error) {
-	userID := utils.GetUserIDFromContext(ctx)
-	if userID == "" {
-		return nil, huma.Error401Unauthorized("Not authenticated")
-	}
-
-	// LLAMADA REAL A LA DB
-	// Nota: Necesitarás que AuthAPI tenga acceso a userModel o usar una función de búsqueda
-	user, err := a.authModel.GetUserByID(ctx, userID)
-	if err != nil {
-		return nil, huma.Error404NotFound("User not found")
-	}
-
-	return &ProfileResponse{
-		Body: models.UserResponse{
-			ID:        user.ID,
-			Email:     user.Email,
-			Name:      user.Name, // <--- Ahora viene de la DB
-			Active:    user.Active,
-			CreatedAt: user.CreatedAt,
-			UpdatedAt: user.UpdatedAt,
-		},
-	}, nil
+func (a *AuthAPI) GetProfile(ctx context.Context, input *struct{}) (*ProfileResponse, error) {
+    userID := utils.GetUserIDFromContext(ctx) 
+    
+    // Ahora a.userModel ya existe porque lo añadimos arriba
+    user, err := a.userModel.GetByID(ctx, userID)
+    if err != nil {
+        return nil, huma.Error404NotFound("Usuario no encontrado", err)
+    }
+    
+    // Usamos ProfileResponse que es el tipo que definiste justo arriba en el archivo
+    return &ProfileResponse{Body: *user}, nil
 }

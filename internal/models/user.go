@@ -24,6 +24,7 @@ type UserUpdateInput struct {
 	Name     *string `json:"name"`
 	Password *string `json:"password"`
 	Active   *bool   `json:"active"`
+	Avatar   *string `json:"avatar"`
 }
 
 type UserResponse struct {
@@ -31,6 +32,7 @@ type UserResponse struct {
 	Email     string    `json:"email"`
 	Name      string    `json:"name"`
 	Active    bool      `json:"active"`
+	AvatarImage *string `json:"avatar_image"`
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }
@@ -89,24 +91,33 @@ func (m *UserModel) Create(ctx context.Context, input UserInput) (*UserResponse,
 }
 
 func (m *UserModel) GetAll(ctx context.Context) ([]*UserResponse, error) {
-	query := "SELECT id, email, name, active, created_at, updated_at FROM users"
+    // 1. Aquí pides 7 campos: id(1), email(2), name(3), active(4), avatar_image(5), created_at(6), updated_at(7)
+    query := "SELECT id, email, name, active, avatar_image, created_at, updated_at FROM users"
 
-	rows, err := m.db.QueryContext(ctx, query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
+    rows, err := m.db.QueryContext(ctx, query)
+    if err != nil {
+        return nil, err
+    }
+    defer rows.Close()
 
-	var responses []*UserResponse
-	for rows.Next() {
-		u := &UserResponse{}
-		err := rows.Scan(&u.ID, &u.Email, &u.Name, &u.Active, &u.CreatedAt, &u.UpdatedAt)
-		if err != nil {
-			return nil, err
-		}
-		responses = append(responses, u)
-	}
-	return responses, nil
+    var responses []*UserResponse
+    for rows.Next() {
+        u := &UserResponse{}
+        err := rows.Scan(
+            &u.ID, 
+            &u.Email, 
+            &u.Name, 
+            &u.Active, 
+            &u.AvatarImage, // <--- ESTE FALTABA (Posición 5)
+            &u.CreatedAt, 
+            &u.UpdatedAt,
+        )
+        if err != nil {
+            return nil, err
+        }
+        responses = append(responses, u)
+    }
+    return responses, nil
 }
 
 func (m *UserModel) GetByID(ctx context.Context, id string) (*UserResponse, error) {
@@ -125,6 +136,7 @@ func (m *UserModel) GetByID(ctx context.Context, id string) (*UserResponse, erro
 		Name:      u.Name,
 		Active:    u.Active,
 		CreatedAt: u.CreatedAt,
+		AvatarImage: u.AvatarImage,
 		UpdatedAt: u.UpdatedAt,
 	}, nil
 }
@@ -139,6 +151,11 @@ func (m *UserModel) Update(ctx context.Context, id string, input UserUpdateInput
 	if input.Name != nil {
 		update.SetName(*input.Name)
 	}
+	
+	if input.Avatar != nil {
+        update.SetAvatarImage(*input.Avatar)
+    }
+
 	if input.Password != nil {
 		hashedPass, err := hashPassword(*input.Password)
 		if err != nil {
@@ -162,6 +179,7 @@ func (m *UserModel) Update(ctx context.Context, id string, input UserUpdateInput
 		Active:    u.Active,
 		CreatedAt: u.CreatedAt,
 		UpdatedAt: u.UpdatedAt,
+		AvatarImage: u.AvatarImage,
 	}, nil
 }
 

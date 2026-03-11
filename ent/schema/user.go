@@ -21,6 +21,9 @@ func (User) Fields() []ent.Field {
             DefaultFunc(func() string {
                 return uuid.New().String() // Genera el ID automáticamente
             }),
+        field.Text("avatar_image").
+            Optional().
+            Nillable(), // Permite que sea null en la BD
         field.String("email").Unique(),
         field.String("name"),
         field.String("password").Sensitive(),

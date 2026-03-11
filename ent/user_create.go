@@ -21,6 +21,20 @@ type UserCreate struct {
 	hooks    []Hook
 }
 
+// SetAvatarImage sets the "avatar_image" field.
+func (_c *UserCreate) SetAvatarImage(v string) *UserCreate {
+	_c.mutation.SetAvatarImage(v)
+	return _c
+}
+
+// SetNillableAvatarImage sets the "avatar_image" field if the given value is not nil.
+func (_c *UserCreate) SetNillableAvatarImage(v *string) *UserCreate {
+	if v != nil {
+		_c.SetAvatarImage(*v)
+	}
+	return _c
+}
+
 // SetEmail sets the "email" field.
 func (_c *UserCreate) SetEmail(v string) *UserCreate {
 	_c.mutation.SetEmail(v)
@@ -217,6 +231,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if id, ok := _c.mutation.ID(); ok {
 		_node.ID = id
 		_spec.ID.Value = id
+	}
+	if value, ok := _c.mutation.AvatarImage(); ok {
+		_spec.SetField(user.FieldAvatarImage, field.TypeString, value)
+		_node.AvatarImage = &value
 	}
 	if value, ok := _c.mutation.Email(); ok {
 		_spec.SetField(user.FieldEmail, field.TypeString, value)
