@@ -1,5 +1,5 @@
 # Etapa de construcción (Builder)
-FROM golang:1.25-alpine AS builder
+FROM golang:1.23-alpine AS builder
 
 WORKDIR /app
 
@@ -24,7 +24,8 @@ WORKDIR /app
 
 # Copiar el binario desde la etapa de construcción
 COPY --from=builder /app/main .
-COPY --from=builder /app/cmd/server/.env .
+# Usamos un wildcard o verificamos si existe para que no rompa el build si no hay .env
+COPY --from=builder /app/cmd/server/.env* ./
 # Exponer el puerto que usa la aplicación
 EXPOSE 8000
 

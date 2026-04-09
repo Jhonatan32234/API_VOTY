@@ -11,6 +11,10 @@ services:
       - DB_USER=root
       - DB_PASSWORD=password
       - DB_NAME=voty_db
+      - FIREBASE_CONFIG_PATH=/app/firebase-auth.json
+    volumes:
+      # Mapea tu archivo local (en el servidor) al contenedor
+      - ./cmd/server/voty.json:/app/firebase-auth.json
     depends_on:
       - db
     restart: on-failure
