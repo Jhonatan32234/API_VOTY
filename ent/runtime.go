@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"api_voty/ent/device"
 	"api_voty/ent/poll"
 	"api_voty/ent/polloption"
 	"api_voty/ent/schema"
@@ -15,6 +16,14 @@ import (
 // (default values, validators, hooks and policies) and stitches it
 // to their package variables.
 func init() {
+	deviceFields := schema.Device{}.Fields()
+	_ = deviceFields
+	// deviceDescUpdatedAt is the schema descriptor for updated_at field.
+	deviceDescUpdatedAt := deviceFields[2].Descriptor()
+	// device.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	device.DefaultUpdatedAt = deviceDescUpdatedAt.Default.(func() time.Time)
+	// device.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	device.UpdateDefaultUpdatedAt = deviceDescUpdatedAt.UpdateDefault.(func() time.Time)
 	pollFields := schema.Poll{}.Fields()
 	_ = pollFields
 	// pollDescIsOpen is the schema descriptor for is_open field.

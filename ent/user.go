@@ -41,9 +41,11 @@ type User struct {
 type UserEdges struct {
 	// Votes holds the value of the votes edge.
 	Votes []*Vote `json:"votes,omitempty"`
+	// Devices holds the value of the devices edge.
+	Devices []*Device `json:"devices,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [1]bool
+	loadedTypes [2]bool
 }
 
 // VotesOrErr returns the Votes value or an error if the edge
@@ -53,6 +55,15 @@ func (e UserEdges) VotesOrErr() ([]*Vote, error) {
 		return e.Votes, nil
 	}
 	return nil, &NotLoadedError{edge: "votes"}
+}
+
+// DevicesOrErr returns the Devices value or an error if the edge
+// was not loaded in eager-loading.
+func (e UserEdges) DevicesOrErr() ([]*Device, error) {
+	if e.loadedTypes[1] {
+		return e.Devices, nil
+	}
+	return nil, &NotLoadedError{edge: "devices"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -146,6 +157,11 @@ func (_m *User) Value(name string) (ent.Value, error) {
 // QueryVotes queries the "votes" edge of the User entity.
 func (_m *User) QueryVotes() *VoteQuery {
 	return NewUserClient(_m.config).QueryVotes(_m)
+}
+
+// QueryDevices queries the "devices" edge of the User entity.
+func (_m *User) QueryDevices() *DeviceQuery {
+	return NewUserClient(_m.config).QueryDevices(_m)
 }
 
 // Update returns a builder for updating this User.

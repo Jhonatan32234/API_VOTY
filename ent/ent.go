@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"api_voty/ent/device"
 	"api_voty/ent/poll"
 	"api_voty/ent/polloption"
 	"api_voty/ent/user"
@@ -76,6 +77,7 @@ var (
 func checkColumn(t, c string) error {
 	initCheck.Do(func() {
 		columnCheck = sql.NewColumnCheck(map[string]func(string) bool{
+			device.Table:     device.ValidColumn,
 			poll.Table:       poll.ValidColumn,
 			polloption.Table: polloption.ValidColumn,
 			user.Table:       user.ValidColumn,

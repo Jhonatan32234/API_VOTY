@@ -17,6 +17,10 @@ import (
 	"api_voty/ent/migrate"
 	"api_voty/internal/api"
 	"api_voty/internal/models"
+
+	firebase "firebase.google.com/go/v4"
+	"firebase.google.com/go/v4/messaging"
+	"google.golang.org/api/option"
 )
 
 func main() {
@@ -66,15 +70,32 @@ func main() {
 		log.Fatalf("failed creating schema resources: %v", err)
 	}
 
+	// Inicializar Firebase Messaging
+	var fcmClient *messaging.Client
+	fbConfigPath := os.Getenv("FIREBASE_CONFIG_PATH")
+	if fbConfigPath != "" {
+		opt := option.WithCredentialsFile(fbConfigPath)
+		app, err := firebase.NewApp(ctx, nil, opt)
+		if err != nil {
+			log.Printf("Error inicializando Firebase: %v", err)
+		} else {
+			fcmClient, err = app.Messaging(ctx)
+			if err != nil {
+				log.Printf("Error obteniendo cliente de mensajería: %v", err)
+			}
+		}
+	}
+
 	hub := api.NewHub()
 	go hub.Run() // No olvides poner a correr el hub en segundo plano
 
 	pollModel := models.NewPollModel(client)
 	userModel := models.NewUserModel(client, db)
+	deviceModel := models.NewDeviceModel(client)
 
 	authModel := models.NewAuthModel(client, db)
-	authAPI := api.NewAuthAPI(authModel,userModel)
-	userAPI := api.NewUserAPI(userModel, pollModel, hub)
+	authAPI := api.NewAuthAPI(authModel, userModel)
+	userAPI := api.NewUserAPI(userModel, pollModel, deviceModel, fcmClient, hub)
 
 	mux := http.NewServeMux()
 

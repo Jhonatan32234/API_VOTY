@@ -6,6 +6,9 @@ import (
 	"entgo.io/ent/dialect/sql"
 )
 
+// Device is the predicate function for device builders.
+type Device func(*sql.Selector)
+
 // Poll is the predicate function for poll builders.
 type Poll func(*sql.Selector)
 

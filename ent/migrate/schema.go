@@ -8,6 +8,28 @@ import (
 )
 
 var (
+	// DevicesColumns holds the columns for the "devices" table.
+	DevicesColumns = []*schema.Column{
+		{Name: "id", Type: field.TypeInt, Increment: true},
+		{Name: "token", Type: field.TypeString, Unique: true},
+		{Name: "platform", Type: field.TypeString, Nullable: true},
+		{Name: "updated_at", Type: field.TypeTime},
+		{Name: "user_devices", Type: field.TypeString},
+	}
+	// DevicesTable holds the schema information for the "devices" table.
+	DevicesTable = &schema.Table{
+		Name:       "devices",
+		Columns:    DevicesColumns,
+		PrimaryKey: []*schema.Column{DevicesColumns[0]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "devices_users_devices",
+				Columns:    []*schema.Column{DevicesColumns[4]},
+				RefColumns: []*schema.Column{UsersColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+	}
 	// PollsColumns holds the columns for the "polls" table.
 	PollsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
@@ -102,6 +124,7 @@ var (
 	}
 	// Tables holds all the tables in the schema.
 	Tables = []*schema.Table{
+		DevicesTable,
 		PollsTable,
 		PollOptionsTable,
 		UsersTable,
@@ -110,6 +133,7 @@ var (
 )
 
 func init() {
+	DevicesTable.ForeignKeys[0].RefTable = UsersTable
 	PollOptionsTable.ForeignKeys[0].RefTable = PollsTable
 	VotesTable.ForeignKeys[0].RefTable = PollsTable
 	VotesTable.ForeignKeys[1].RefTable = PollOptionsTable

@@ -8,6 +8,18 @@ import (
 	"fmt"
 )
 
+// The DeviceFunc type is an adapter to allow the use of ordinary
+// function as Device mutator.
+type DeviceFunc func(context.Context, *ent.DeviceMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f DeviceFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.DeviceMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.DeviceMutation", m)
+}
+
 // The PollFunc type is an adapter to allow the use of ordinary
 // function as Poll mutator.
 type PollFunc func(context.Context, *ent.PollMutation) (ent.Value, error)

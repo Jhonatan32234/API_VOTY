@@ -3,6 +3,7 @@
 package ent
 
 import (
+	"api_voty/ent/device"
 	"api_voty/ent/predicate"
 	"api_voty/ent/user"
 	"api_voty/ent/vote"
@@ -126,6 +127,21 @@ func (_u *UserUpdate) AddVotes(v ...*Vote) *UserUpdate {
 	return _u.AddVoteIDs(ids...)
 }
 
+// AddDeviceIDs adds the "devices" edge to the Device entity by IDs.
+func (_u *UserUpdate) AddDeviceIDs(ids ...int) *UserUpdate {
+	_u.mutation.AddDeviceIDs(ids...)
+	return _u
+}
+
+// AddDevices adds the "devices" edges to the Device entity.
+func (_u *UserUpdate) AddDevices(v ...*Device) *UserUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDeviceIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdate) Mutation() *UserMutation {
 	return _u.mutation
@@ -150,6 +166,27 @@ func (_u *UserUpdate) RemoveVotes(v ...*Vote) *UserUpdate {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVoteIDs(ids...)
+}
+
+// ClearDevices clears all "devices" edges to the Device entity.
+func (_u *UserUpdate) ClearDevices() *UserUpdate {
+	_u.mutation.ClearDevices()
+	return _u
+}
+
+// RemoveDeviceIDs removes the "devices" edge to Device entities by IDs.
+func (_u *UserUpdate) RemoveDeviceIDs(ids ...int) *UserUpdate {
+	_u.mutation.RemoveDeviceIDs(ids...)
+	return _u
+}
+
+// RemoveDevices removes "devices" edges to Device entities.
+func (_u *UserUpdate) RemoveDevices(v ...*Device) *UserUpdate {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDeviceIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -256,6 +293,51 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DevicesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DevicesTable,
+			Columns: []string{user.DevicesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(device.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDevicesIDs(); len(nodes) > 0 && !_u.mutation.DevicesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DevicesTable,
+			Columns: []string{user.DevicesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(device.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DevicesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DevicesTable,
+			Columns: []string{user.DevicesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(device.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
@@ -380,6 +462,21 @@ func (_u *UserUpdateOne) AddVotes(v ...*Vote) *UserUpdateOne {
 	return _u.AddVoteIDs(ids...)
 }
 
+// AddDeviceIDs adds the "devices" edge to the Device entity by IDs.
+func (_u *UserUpdateOne) AddDeviceIDs(ids ...int) *UserUpdateOne {
+	_u.mutation.AddDeviceIDs(ids...)
+	return _u
+}
+
+// AddDevices adds the "devices" edges to the Device entity.
+func (_u *UserUpdateOne) AddDevices(v ...*Device) *UserUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddDeviceIDs(ids...)
+}
+
 // Mutation returns the UserMutation object of the builder.
 func (_u *UserUpdateOne) Mutation() *UserMutation {
 	return _u.mutation
@@ -404,6 +501,27 @@ func (_u *UserUpdateOne) RemoveVotes(v ...*Vote) *UserUpdateOne {
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveVoteIDs(ids...)
+}
+
+// ClearDevices clears all "devices" edges to the Device entity.
+func (_u *UserUpdateOne) ClearDevices() *UserUpdateOne {
+	_u.mutation.ClearDevices()
+	return _u
+}
+
+// RemoveDeviceIDs removes the "devices" edge to Device entities by IDs.
+func (_u *UserUpdateOne) RemoveDeviceIDs(ids ...int) *UserUpdateOne {
+	_u.mutation.RemoveDeviceIDs(ids...)
+	return _u
+}
+
+// RemoveDevices removes "devices" edges to Device entities.
+func (_u *UserUpdateOne) RemoveDevices(v ...*Device) *UserUpdateOne {
+	ids := make([]int, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveDeviceIDs(ids...)
 }
 
 // Where appends a list predicates to the UserUpdate builder.
@@ -540,6 +658,51 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 			Bidi:    false,
 			Target: &sqlgraph.EdgeTarget{
 				IDSpec: sqlgraph.NewFieldSpec(vote.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.DevicesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DevicesTable,
+			Columns: []string{user.DevicesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(device.FieldID, field.TypeInt),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedDevicesIDs(); len(nodes) > 0 && !_u.mutation.DevicesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DevicesTable,
+			Columns: []string{user.DevicesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(device.FieldID, field.TypeInt),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.DevicesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.O2M,
+			Inverse: false,
+			Table:   user.DevicesTable,
+			Columns: []string{user.DevicesColumn},
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(device.FieldID, field.TypeInt),
 			},
 		}
 		for _, k := range nodes {
