@@ -74,7 +74,6 @@ func main() {
 	if err != nil {
 		log.Fatalf("No se pudo conectar a la base de datos tras varios intentos: %v", err)
 	}
-
 	drv := entsql.OpenDB(dialect.MySQL, db)
 	client := ent.NewClient(ent.Driver(drv))
 	defer client.Close()
@@ -105,6 +104,10 @@ func main() {
 		}
 	}
 
+	if _, err := os.Stat("uploads"); os.IsNotExist(err) {
+        os.Mkdir("uploads", 0755)
+    }
+
 	hub := api.NewHub()
 	go hub.Run() // No olvides poner a correr el hub en segundo plano
 
@@ -127,4 +130,5 @@ func main() {
 	if err := http.ListenAndServe(port, mux); err != nil {
 		log.Fatal(err)
 	}
+	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
 }

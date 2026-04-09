@@ -16,6 +16,8 @@ const (
 	FieldText = "text"
 	// FieldVotesCount holds the string denoting the votes_count field in the database.
 	FieldVotesCount = "votes_count"
+	// FieldImageURL holds the string denoting the image_url field in the database.
+	FieldImageURL = "image_url"
 	// EdgePoll holds the string denoting the poll edge name in mutations.
 	EdgePoll = "poll"
 	// EdgeVotes holds the string denoting the votes edge name in mutations.
@@ -43,6 +45,7 @@ var Columns = []string{
 	FieldID,
 	FieldText,
 	FieldVotesCount,
+	FieldImageURL,
 }
 
 // ForeignKeys holds the SQL foreign-keys that are owned by the "poll_options"
@@ -87,6 +90,11 @@ func ByText(opts ...sql.OrderTermOption) OrderOption {
 // ByVotesCountField orders the results by the votes_count field.
 func ByVotesCountField(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldVotesCount, opts...).ToFunc()
+}
+
+// ByImageURL orders the results by the image_url field.
+func ByImageURL(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldImageURL, opts...).ToFunc()
 }
 
 // ByPollField orders the results by poll field.

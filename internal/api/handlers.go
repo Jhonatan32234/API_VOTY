@@ -5,9 +5,14 @@ import (
 	"api_voty/internal/utils"
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
+	"strings"
+	"time"
 
 	"firebase.google.com/go/v4/messaging"
 	"github.com/danielgtaylor/huma/v2"
@@ -321,71 +326,114 @@ type CreatePollRequest struct {
 	}
 }
 
-func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollRequest) (*struct{}, error) {
-    // 1. Crear la encuesta
-    p, err := a.pollModel.Create(ctx, input.Body.Title)
+type CreatePollInput struct {
+    // Los campos de texto en multipart se reciben como campos normales
+    Title   string   `form:"title" doc:"Título de la encuesta"`
+    Options []string `form:"options" doc:"Lista de opciones de texto"`
+    
+    // huma.FormFile permite recibir los binarios
+    // Usamos un slice [] para permitir múltiples imágenes
+    Images  []huma.FormFile `form:"images" doc:"Imágenes correspondientes a cada opción"`
+}
+
+func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*struct{}, error) {
+    // 1. Crear la cabecera
+    p, err := a.pollModel.Create(ctx, input.Title)
     if err != nil {
-        return nil, huma.Error500InternalServerError("Error al crear la encuesta", err)
+        return nil, huma.Error500InternalServerError("Error DB", err)
     }
 
-    // 2. Crear las opciones
-    for _, optText := range input.Body.Options {
-        if err := a.pollModel.AddOption(ctx, fmt.Sprintf("%d", p.ID), optText); err != nil {
-            return nil, huma.Error500InternalServerError("Error al crear las opciones", err)
+    var optionsOutput []map[string]interface{}
+    var imageUrlsForPush []string
+
+    // 2. Procesar opciones e imágenes
+    for i, optText := range input.Options {
+        var imagePath string
+
+        // Verificar si hay una imagen para este índice
+        // ... dentro del bucle de input.Images
+for i, optText := range input.Options {
+	print(optText)
+    var imagePath string
+
+    if i < len(input.Images) {
+        formFile := input.Images[i]
+
+        // 1. Generar nombre único usando el campo Filename que se ve en tu imagen
+        ext := filepath.Ext(formFile.Filename)
+        fileName := fmt.Sprintf("poll_%d_opt_%d_%d%s", p.ID, i, time.Now().Unix(), ext)
+        fullPath := filepath.Join("uploads", fileName)
+
+        // 2. Crear el destino en disco
+        out, err := os.Create(fullPath)
+        if err != nil {
+            return nil, huma.Error500InternalServerError("Error creando archivo local", err)
         }
+
+        // 3. COPIAR DIRECTAMENTE
+        // Como formFile tiene el método Read, puedes pasarlo directamente a io.Copy
+        _, err = io.Copy(out, formFile)
+        
+        // Es vital cerrar el archivo de salida y el formFile (que tiene el método Close)
+        out.Close()
+        formFile.Close() 
+
+        if err != nil {
+            return nil, huma.Error500InternalServerError("Error escribiendo imagen", err)
+        }
+
+        imagePath = "https://apivoty.jhonatanzc.fun/uploads/" + fileName
+        imageUrlsForPush = append(imageUrlsForPush, imagePath)
+    }
+}
+        // Guardar en DB
+        _ = a.pollModel.AddOption(ctx, fmt.Sprintf("%d", p.ID), optText, imagePath)
+
+        optionsOutput = append(optionsOutput, map[string]interface{}{
+            "id":          fmt.Sprintf("%d", i+1),
+            "text":        optText,
+            "image_url":   imagePath,
+            "votes_count": 0,
+        })
     }
 
-    // 3. Obtener la encuesta completa (PollOutput) para el WebSocket
-    // En lugar de llamar a GetByID que no existe, usamos los datos que ya tenemos
-	// Construimos un objeto que coincida con lo que tu App Android llama "PollOutput"
-	// En tu backend Go:
-	var optionsOutput []map[string]interface{}
-	for i, optText := range input.Body.Options {
-	    optionsOutput = append(optionsOutput, map[string]interface{}{
-	        "id":          fmt.Sprintf("%d", i+1), // Un ID temporal o el real de la DB
-	        "text":        optText,
-	        "votes_count": 0,
-	    })
-	}
+    // 4. Construir objeto completo para tiempo real
+    fullPoll := map[string]interface{}{
+        "id":      fmt.Sprintf("%d", p.ID),
+        "title":   p.Title,
+        "options": optionsOutput,
+        "voted":   false,
+        "is_open": true,
+    }
 
-	fullPoll := map[string]interface{}{
-	    "id":         fmt.Sprintf("%d", p.ID),
-	    "title":      p.Title,
-	    "options":    optionsOutput,
-	    "voted":      false,
-	    "is_open":    true,
-	}
-	
-	// Notificar por WebSocket
-	go func() {
-	    a.Hub.Broadcast <- SocketMessage{
-	        Event:   "poll_created",
-	        Payload: fullPoll, 
-	    }
-	}()
-
-    // --- NUEVO: Notificación WebSocket ---
+    // 5. Notificar por WebSocket (Broadcast)
     go func() {
         a.Hub.Broadcast <- SocketMessage{
-            Event:   "poll_created", // Coincide con socket.on("poll_created")
-            Payload: fullPoll,       // Lo que recibe gson.fromJson(data, PollOutput::class.java)
+            Event:   "poll_created",
+            Payload: fullPoll,
         }
     }()
 
-    // 4. Notificaciones Push (se mantiene igual)
+    // 6. Notificaciones Push (FCM)
     go func() {
         tokens, _ := a.deviceModel.GetAllTokens(context.Background())
+        
+        // Incluimos las URLs de las imágenes en los datos para el WorkManager de Android
         notificationData := map[string]string{
-            "type":    "NEW_POLL",
-            "poll_id": fmt.Sprintf("%d", p.ID),
+            "type":        "NEW_POLL",
+            "poll_id":     fmt.Sprintf("%d", p.ID),
+            "image_urls":  strings.Join(imageUrlsForPush, ","),
         }
+
         for _, token := range tokens {
-            a.sendPushNotification(context.Background(), token, "¡Nueva Encuesta!", input.Body.Title, notificationData)
+            a.sendPushNotification(context.Background(), token, "¡Nueva Encuesta!", p.Title, notificationData)
         }
     }()
 
     return nil, nil
 }
+
+
 func (a *UserAPI) CreateUser(ctx context.Context, req *CreateUserRequest) (*UserResponse, error) {
 	input := models.UserInput{
 		Email:    req.Body.Email,
@@ -554,15 +602,18 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
 	router.HandleFunc("/ws/votes", userAPI.SubscribeVotes)
 
 	huma.Register(app, huma.Operation{
-		OperationID: "create-poll",
-		Method:      http.MethodPost,
-		Path:        "/polls",
-		Summary:     "Crear una nueva encuesta",
-		Description: "Crea una encuesta con sus opciones iniciales. Solo para administradores (en el futuro).",
-		Tags:        []string{"Voting"},
-		Security:    []map[string][]string{{"bearerAuth": {}}},
-		Middlewares: huma.Middlewares{AuthMiddleware(app)},
-	}, userAPI.CreatePoll)
+    OperationID: "create-poll",
+    Method:      http.MethodPost,
+    Path:        "/polls",
+    Summary:     "Crear una nueva encuesta",
+    Description: "Crea una encuesta con texto e imágenes mediante multipart/form-data.",
+    Tags:        []string{"Voting"},
+    Security:    []map[string][]string{{"bearerAuth": {}}},
+    Middlewares: huma.Middlewares{AuthMiddleware(app)},
+}, func(ctx context.Context, input *CreatePollInput) (*struct{}, error) {
+    // Aquí llamas a la lógica de tu userAPI.CreatePoll pasando el input
+    return userAPI.CreatePoll(ctx, input)
+})
 
 	huma.Register(app, huma.Operation{
 		OperationID: "list-polls",

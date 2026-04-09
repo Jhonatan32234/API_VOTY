@@ -64,6 +64,26 @@ func (_u *PollOptionUpdate) AddVotesCount(v int) *PollOptionUpdate {
 	return _u
 }
 
+// SetImageURL sets the "image_url" field.
+func (_u *PollOptionUpdate) SetImageURL(v string) *PollOptionUpdate {
+	_u.mutation.SetImageURL(v)
+	return _u
+}
+
+// SetNillableImageURL sets the "image_url" field if the given value is not nil.
+func (_u *PollOptionUpdate) SetNillableImageURL(v *string) *PollOptionUpdate {
+	if v != nil {
+		_u.SetImageURL(*v)
+	}
+	return _u
+}
+
+// ClearImageURL clears the value of the "image_url" field.
+func (_u *PollOptionUpdate) ClearImageURL() *PollOptionUpdate {
+	_u.mutation.ClearImageURL()
+	return _u
+}
+
 // SetPollID sets the "poll" edge to the Poll entity by ID.
 func (_u *PollOptionUpdate) SetPollID(id int) *PollOptionUpdate {
 	_u.mutation.SetPollID(id)
@@ -174,6 +194,12 @@ func (_u *PollOptionUpdate) sqlSave(ctx context.Context) (_node int, err error) 
 	}
 	if value, ok := _u.mutation.AddedVotesCount(); ok {
 		_spec.AddField(polloption.FieldVotesCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ImageURL(); ok {
+		_spec.SetField(polloption.FieldImageURL, field.TypeString, value)
+	}
+	if _u.mutation.ImageURLCleared() {
+		_spec.ClearField(polloption.FieldImageURL, field.TypeString)
 	}
 	if _u.mutation.PollCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -301,6 +327,26 @@ func (_u *PollOptionUpdateOne) SetNillableVotesCount(v *int) *PollOptionUpdateOn
 // AddVotesCount adds value to the "votes_count" field.
 func (_u *PollOptionUpdateOne) AddVotesCount(v int) *PollOptionUpdateOne {
 	_u.mutation.AddVotesCount(v)
+	return _u
+}
+
+// SetImageURL sets the "image_url" field.
+func (_u *PollOptionUpdateOne) SetImageURL(v string) *PollOptionUpdateOne {
+	_u.mutation.SetImageURL(v)
+	return _u
+}
+
+// SetNillableImageURL sets the "image_url" field if the given value is not nil.
+func (_u *PollOptionUpdateOne) SetNillableImageURL(v *string) *PollOptionUpdateOne {
+	if v != nil {
+		_u.SetImageURL(*v)
+	}
+	return _u
+}
+
+// ClearImageURL clears the value of the "image_url" field.
+func (_u *PollOptionUpdateOne) ClearImageURL() *PollOptionUpdateOne {
+	_u.mutation.ClearImageURL()
 	return _u
 }
 
@@ -444,6 +490,12 @@ func (_u *PollOptionUpdateOne) sqlSave(ctx context.Context) (_node *PollOption, 
 	}
 	if value, ok := _u.mutation.AddedVotesCount(); ok {
 		_spec.AddField(polloption.FieldVotesCount, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.ImageURL(); ok {
+		_spec.SetField(polloption.FieldImageURL, field.TypeString, value)
+	}
+	if _u.mutation.ImageURLCleared() {
+		_spec.ClearField(polloption.FieldImageURL, field.TypeString)
 	}
 	if _u.mutation.PollCleared() {
 		edge := &sqlgraph.EdgeSpec{

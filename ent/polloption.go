@@ -21,6 +21,8 @@ type PollOption struct {
 	Text string `json:"text,omitempty"`
 	// VotesCount holds the value of the "votes_count" field.
 	VotesCount int `json:"votes_count,omitempty"`
+	// ImageURL holds the value of the "image_url" field.
+	ImageURL string `json:"image_url,omitempty"`
 	// Edges holds the relations/edges for other nodes in the graph.
 	// The values are being populated by the PollOptionQuery when eager-loading is set.
 	Edges        PollOptionEdges `json:"edges"`
@@ -66,7 +68,7 @@ func (*PollOption) scanValues(columns []string) ([]any, error) {
 		switch columns[i] {
 		case polloption.FieldID, polloption.FieldVotesCount:
 			values[i] = new(sql.NullInt64)
-		case polloption.FieldText:
+		case polloption.FieldText, polloption.FieldImageURL:
 			values[i] = new(sql.NullString)
 		case polloption.ForeignKeys[0]: // poll_options
 			values[i] = new(sql.NullInt64)
@@ -102,6 +104,12 @@ func (_m *PollOption) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field votes_count", values[i])
 			} else if value.Valid {
 				_m.VotesCount = int(value.Int64)
+			}
+		case polloption.FieldImageURL:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field image_url", values[i])
+			} else if value.Valid {
+				_m.ImageURL = value.String
 			}
 		case polloption.ForeignKeys[0]:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -161,6 +169,9 @@ func (_m *PollOption) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("votes_count=")
 	builder.WriteString(fmt.Sprintf("%v", _m.VotesCount))
+	builder.WriteString(", ")
+	builder.WriteString("image_url=")
+	builder.WriteString(_m.ImageURL)
 	builder.WriteByte(')')
 	return builder.String()
 }

@@ -41,6 +41,20 @@ func (_c *PollOptionCreate) SetNillableVotesCount(v *int) *PollOptionCreate {
 	return _c
 }
 
+// SetImageURL sets the "image_url" field.
+func (_c *PollOptionCreate) SetImageURL(v string) *PollOptionCreate {
+	_c.mutation.SetImageURL(v)
+	return _c
+}
+
+// SetNillableImageURL sets the "image_url" field if the given value is not nil.
+func (_c *PollOptionCreate) SetNillableImageURL(v *string) *PollOptionCreate {
+	if v != nil {
+		_c.SetImageURL(*v)
+	}
+	return _c
+}
+
 // SetPollID sets the "poll" edge to the Poll entity by ID.
 func (_c *PollOptionCreate) SetPollID(id int) *PollOptionCreate {
 	_c.mutation.SetPollID(id)
@@ -157,6 +171,10 @@ func (_c *PollOptionCreate) createSpec() (*PollOption, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.VotesCount(); ok {
 		_spec.SetField(polloption.FieldVotesCount, field.TypeInt, value)
 		_node.VotesCount = value
+	}
+	if value, ok := _c.mutation.ImageURL(); ok {
+		_spec.SetField(polloption.FieldImageURL, field.TypeString, value)
+		_node.ImageURL = value
 	}
 	if nodes := _c.mutation.PollIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{

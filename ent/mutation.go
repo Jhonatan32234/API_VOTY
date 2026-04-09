@@ -1177,6 +1177,7 @@ type PollOptionMutation struct {
 	text           *string
 	votes_count    *int
 	addvotes_count *int
+	image_url      *string
 	clearedFields  map[string]struct{}
 	poll           *int
 	clearedpoll    bool
@@ -1378,6 +1379,55 @@ func (m *PollOptionMutation) ResetVotesCount() {
 	m.addvotes_count = nil
 }
 
+// SetImageURL sets the "image_url" field.
+func (m *PollOptionMutation) SetImageURL(s string) {
+	m.image_url = &s
+}
+
+// ImageURL returns the value of the "image_url" field in the mutation.
+func (m *PollOptionMutation) ImageURL() (r string, exists bool) {
+	v := m.image_url
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldImageURL returns the old "image_url" field's value of the PollOption entity.
+// If the PollOption object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PollOptionMutation) OldImageURL(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldImageURL is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldImageURL requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldImageURL: %w", err)
+	}
+	return oldValue.ImageURL, nil
+}
+
+// ClearImageURL clears the value of the "image_url" field.
+func (m *PollOptionMutation) ClearImageURL() {
+	m.image_url = nil
+	m.clearedFields[polloption.FieldImageURL] = struct{}{}
+}
+
+// ImageURLCleared returns if the "image_url" field was cleared in this mutation.
+func (m *PollOptionMutation) ImageURLCleared() bool {
+	_, ok := m.clearedFields[polloption.FieldImageURL]
+	return ok
+}
+
+// ResetImageURL resets all changes to the "image_url" field.
+func (m *PollOptionMutation) ResetImageURL() {
+	m.image_url = nil
+	delete(m.clearedFields, polloption.FieldImageURL)
+}
+
 // SetPollID sets the "poll" edge to the Poll entity by id.
 func (m *PollOptionMutation) SetPollID(id int) {
 	m.poll = &id
@@ -1505,12 +1555,15 @@ func (m *PollOptionMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PollOptionMutation) Fields() []string {
-	fields := make([]string, 0, 2)
+	fields := make([]string, 0, 3)
 	if m.text != nil {
 		fields = append(fields, polloption.FieldText)
 	}
 	if m.votes_count != nil {
 		fields = append(fields, polloption.FieldVotesCount)
+	}
+	if m.image_url != nil {
+		fields = append(fields, polloption.FieldImageURL)
 	}
 	return fields
 }
@@ -1524,6 +1577,8 @@ func (m *PollOptionMutation) Field(name string) (ent.Value, bool) {
 		return m.Text()
 	case polloption.FieldVotesCount:
 		return m.VotesCount()
+	case polloption.FieldImageURL:
+		return m.ImageURL()
 	}
 	return nil, false
 }
@@ -1537,6 +1592,8 @@ func (m *PollOptionMutation) OldField(ctx context.Context, name string) (ent.Val
 		return m.OldText(ctx)
 	case polloption.FieldVotesCount:
 		return m.OldVotesCount(ctx)
+	case polloption.FieldImageURL:
+		return m.OldImageURL(ctx)
 	}
 	return nil, fmt.Errorf("unknown PollOption field %s", name)
 }
@@ -1559,6 +1616,13 @@ func (m *PollOptionMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetVotesCount(v)
+		return nil
+	case polloption.FieldImageURL:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetImageURL(v)
 		return nil
 	}
 	return fmt.Errorf("unknown PollOption field %s", name)
@@ -1604,7 +1668,11 @@ func (m *PollOptionMutation) AddField(name string, value ent.Value) error {
 // ClearedFields returns all nullable fields that were cleared during this
 // mutation.
 func (m *PollOptionMutation) ClearedFields() []string {
-	return nil
+	var fields []string
+	if m.FieldCleared(polloption.FieldImageURL) {
+		fields = append(fields, polloption.FieldImageURL)
+	}
+	return fields
 }
 
 // FieldCleared returns a boolean indicating if a field with the given name was
@@ -1617,6 +1685,11 @@ func (m *PollOptionMutation) FieldCleared(name string) bool {
 // ClearField clears the value of the field with the given name. It returns an
 // error if the field is not defined in the schema.
 func (m *PollOptionMutation) ClearField(name string) error {
+	switch name {
+	case polloption.FieldImageURL:
+		m.ClearImageURL()
+		return nil
+	}
 	return fmt.Errorf("unknown PollOption nullable field %s", name)
 }
 
@@ -1629,6 +1702,9 @@ func (m *PollOptionMutation) ResetField(name string) error {
 		return nil
 	case polloption.FieldVotesCount:
 		m.ResetVotesCount()
+		return nil
+	case polloption.FieldImageURL:
+		m.ResetImageURL()
 		return nil
 	}
 	return fmt.Errorf("unknown PollOption field %s", name)

@@ -46,8 +46,9 @@ var (
 	// PollOptionsColumns holds the columns for the "poll_options" table.
 	PollOptionsColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt, Increment: true},
-		{Name: "text", Type: field.TypeString},
+		{Name: "text", Type: field.TypeString, Size: 2147483647},
 		{Name: "votes_count", Type: field.TypeInt, Default: 0},
+		{Name: "image_url", Type: field.TypeString, Nullable: true},
 		{Name: "poll_options", Type: field.TypeInt, Nullable: true},
 	}
 	// PollOptionsTable holds the schema information for the "poll_options" table.
@@ -58,7 +59,7 @@ var (
 		ForeignKeys: []*schema.ForeignKey{
 			{
 				Symbol:     "poll_options_polls_options",
-				Columns:    []*schema.Column{PollOptionsColumns[3]},
+				Columns:    []*schema.Column{PollOptionsColumns[4]},
 				RefColumns: []*schema.Column{PollsColumns[0]},
 				OnDelete:   schema.SetNull,
 			},

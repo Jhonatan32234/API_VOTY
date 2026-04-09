@@ -98,17 +98,18 @@ func (m *PollModel) Create(ctx context.Context, title string) (*ent.Poll, error)
 }
 
 // AddOption añade una opción individual a una encuesta existente
-func (m *PollModel) AddOption(ctx context.Context, pollID string, text string) error {
-	id, err := strconv.Atoi(pollID)
-	if err != nil {
-		return err
-	}
-	return m.client.PollOption.
-		Create().
-		SetText(text).
-		SetPollID(id).
-		SetVotesCount(0).
-		Exec(ctx)
+func (m *PollModel) AddOption(ctx context.Context, pollID string, text string, imageURL string) error {
+    id, err := strconv.Atoi(pollID)
+    if err != nil {
+        return err
+    }
+    return m.client.PollOption.
+        Create().
+        SetText(text).
+        SetPollID(id).
+        SetVotesCount(0).
+        SetImageURL(imageURL). // Asegúrate que este campo exista en tu esquema de Ent
+        Exec(ctx)
 }
 
 func (m *PollModel) ListAll(ctx context.Context) ([]*ent.Poll, error) {

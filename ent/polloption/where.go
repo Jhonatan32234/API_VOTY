@@ -64,6 +64,11 @@ func VotesCount(v int) predicate.PollOption {
 	return predicate.PollOption(sql.FieldEQ(FieldVotesCount, v))
 }
 
+// ImageURL applies equality check predicate on the "image_url" field. It's identical to ImageURLEQ.
+func ImageURL(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldEQ(FieldImageURL, v))
+}
+
 // TextEQ applies the EQ predicate on the "text" field.
 func TextEQ(v string) predicate.PollOption {
 	return predicate.PollOption(sql.FieldEQ(FieldText, v))
@@ -167,6 +172,81 @@ func VotesCountLT(v int) predicate.PollOption {
 // VotesCountLTE applies the LTE predicate on the "votes_count" field.
 func VotesCountLTE(v int) predicate.PollOption {
 	return predicate.PollOption(sql.FieldLTE(FieldVotesCount, v))
+}
+
+// ImageURLEQ applies the EQ predicate on the "image_url" field.
+func ImageURLEQ(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldEQ(FieldImageURL, v))
+}
+
+// ImageURLNEQ applies the NEQ predicate on the "image_url" field.
+func ImageURLNEQ(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldNEQ(FieldImageURL, v))
+}
+
+// ImageURLIn applies the In predicate on the "image_url" field.
+func ImageURLIn(vs ...string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldIn(FieldImageURL, vs...))
+}
+
+// ImageURLNotIn applies the NotIn predicate on the "image_url" field.
+func ImageURLNotIn(vs ...string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldNotIn(FieldImageURL, vs...))
+}
+
+// ImageURLGT applies the GT predicate on the "image_url" field.
+func ImageURLGT(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldGT(FieldImageURL, v))
+}
+
+// ImageURLGTE applies the GTE predicate on the "image_url" field.
+func ImageURLGTE(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldGTE(FieldImageURL, v))
+}
+
+// ImageURLLT applies the LT predicate on the "image_url" field.
+func ImageURLLT(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldLT(FieldImageURL, v))
+}
+
+// ImageURLLTE applies the LTE predicate on the "image_url" field.
+func ImageURLLTE(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldLTE(FieldImageURL, v))
+}
+
+// ImageURLContains applies the Contains predicate on the "image_url" field.
+func ImageURLContains(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldContains(FieldImageURL, v))
+}
+
+// ImageURLHasPrefix applies the HasPrefix predicate on the "image_url" field.
+func ImageURLHasPrefix(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldHasPrefix(FieldImageURL, v))
+}
+
+// ImageURLHasSuffix applies the HasSuffix predicate on the "image_url" field.
+func ImageURLHasSuffix(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldHasSuffix(FieldImageURL, v))
+}
+
+// ImageURLIsNil applies the IsNil predicate on the "image_url" field.
+func ImageURLIsNil() predicate.PollOption {
+	return predicate.PollOption(sql.FieldIsNull(FieldImageURL))
+}
+
+// ImageURLNotNil applies the NotNil predicate on the "image_url" field.
+func ImageURLNotNil() predicate.PollOption {
+	return predicate.PollOption(sql.FieldNotNull(FieldImageURL))
+}
+
+// ImageURLEqualFold applies the EqualFold predicate on the "image_url" field.
+func ImageURLEqualFold(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldEqualFold(FieldImageURL, v))
+}
+
+// ImageURLContainsFold applies the ContainsFold predicate on the "image_url" field.
+func ImageURLContainsFold(v string) predicate.PollOption {
+	return predicate.PollOption(sql.FieldContainsFold(FieldImageURL, v))
 }
 
 // HasPoll applies the HasEdge predicate on the "poll" edge.

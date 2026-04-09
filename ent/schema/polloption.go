@@ -11,10 +11,12 @@ type PollOption struct {
 	ent.Schema
 }
 
+// ent/schema/polloption.go
 func (PollOption) Fields() []ent.Field {
     return []ent.Field{
-        field.String("text"),
+        field.Text("text"),
         field.Int("votes_count").Default(0),
+        field.String("image_url").Optional(),
     }
 }
 
