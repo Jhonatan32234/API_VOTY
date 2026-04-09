@@ -257,26 +257,36 @@ func (a *UserAPI) UpdateDeviceToken(ctx context.Context, input *DeviceTokenReque
 }
 
 func (a *UserAPI) sendPushNotification(ctx context.Context, targetToken, title, body string, data map[string]string) {
-	if a.fcmClient == nil {
-		return
-	}
-	message := &messaging.Message{
-		Notification: &messaging.Notification{
-			Title: title,
-			Body:  body,
-		},
-		Data:  data, // Add the data payload
-		Token: targetToken,
-	}
-	_, err := a.fcmClient.Send(ctx, message)
-	if err != nil {
-		log.Printf("Error enviando notificación: %v", err)
-		// Si el token ya no es válido (ej. el usuario desinstaló la app), lo eliminamos de la BD
-		if messaging.IsRegistrationTokenNotRegistered(err) {
-			log.Printf("Borrando token FCM inválido detectado por Firebase: %s", targetToken)
-			_ = a.deviceModel.DeleteToken(ctx, targetToken)
-		}
-	}
+    if a.fcmClient == nil {
+        return
+    }
+
+    // Aseguramos que el título y el cuerpo viajen en el mapa de datos
+    // Esto permite que tu código Kotlin los extraiga manualmente
+    if data == nil {
+        data = make(map[string]string)
+    }
+    data["title"] = title
+    data["body"] = body
+
+    message := &messaging.Message{
+        // IMPORTANTE: Eliminamos el campo Notification: &messaging.Notification{...}
+        // Al enviar SOLO 'Data', forzamos a Android a ejecutar onMessageReceived
+        Data:  data, 
+        Token: targetToken,
+        Android: &messaging.AndroidConfig{
+            Priority: "high", // Requerido para que el dispositivo despierte de inmediato
+        },
+    }
+
+    _, err := a.fcmClient.Send(ctx, message)
+    if err != nil {
+        log.Printf("Error enviando notificación: %v", err)
+        if messaging.IsRegistrationTokenNotRegistered(err) {
+            log.Printf("Borrando token FCM inválido: %s", targetToken)
+            _ = a.deviceModel.DeleteToken(ctx, targetToken)
+        }
+    }
 }
 
 type TestFCMResponse struct {
