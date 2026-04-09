@@ -16,7 +16,8 @@ services:
       # Mapea tu archivo local (en el servidor) al contenedor
       - ./cmd/server/voty.json:/app/firebase-auth.json
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: on-failure
 
   db:
@@ -28,6 +29,10 @@ services:
       - "3306:3306"
     volumes:
       - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-ppassword"]
+      timeout: 5s
+      retries: 10
     # Usamos mysql_native_password para asegurar compatibilidad con el driver de Go
     command: --default-authentication-plugin=mysql_native_password
 

@@ -1,5 +1,5 @@
 # Etapa de construcción (Builder)
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /app
 
@@ -15,7 +15,7 @@ COPY . .
 
 # Compilar el binario
 # CGO_ENABLED=0 asegura un binario estático
-RUN CGO_ENABLED=0 GOOS=linux go build -o main ./cmd/server/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o main ./cmd/server/main.go
 
 # Etapa final (Imagen ligera para producción)
 FROM alpine:latest

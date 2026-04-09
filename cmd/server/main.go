@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"entgo.io/ent/dialect"
 	entsql "entgo.io/ent/dialect/sql"
@@ -51,9 +52,27 @@ func main() {
 	ctx := context.Background()
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=utf8mb4&parseTime=True&loc=Local", dbUser, dbPass, dbHost, dbPort, dbName)
 
-	db, err := sql.Open("mysql", dsn)
+	log.Printf("Intentando conectar a DB: %s en %s:%s como usuario %s", dbName, dbHost, dbPort, dbUser)
+
+	var db *sql.DB
+	var err error
+
+	// Implementación de reintentos para la conexión a la base de datos
+	for i := 0; i < 10; i++ {
+		db, err = sql.Open("mysql", dsn)
+		if err == nil {
+			err = db.Ping()
+		}
+
+		if err == nil {
+			break
+		}
+
+		log.Printf("Esperando a la base de datos... (intento %d/10): %v", i+1, err)
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
-		log.Fatalf("Error abriendo conexión SQL: %v", err)
+		log.Fatalf("No se pudo conectar a la base de datos tras varios intentos: %v", err)
 	}
 
 	drv := entsql.OpenDB(dialect.MySQL, db)
