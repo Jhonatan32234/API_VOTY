@@ -89,9 +89,10 @@ type PollOutput struct {
 }
 
 type OptionOutput struct {
-	ID         string `json:"id"`
-	Text       string `json:"text"`
-	VotesCount int    `json:"votes_count"`
+    ID         string `json:"id"`
+    Text       string `json:"text"`
+    VotesCount int    `json:"votes_count"`
+    ImageURL   string `json:"image_url,omitempty"` // <-- CRUCIAL
 }
 
 type ListPollsResponse struct {
@@ -203,10 +204,17 @@ func (a *UserAPI) ListPolls(ctx context.Context, input *struct{}) (*ListPollsRes
 			}
 		}
 
+		// ... (dentro de ListPolls)
 		opts := make([]OptionOutput, len(p.Edges.Options))
 		for j, o := range p.Edges.Options {
-			opts[j] = OptionOutput{ID: fmt.Sprintf("%d", o.ID), Text: o.Text, VotesCount: o.VotesCount}
+		    opts[j] = OptionOutput{
+		        ID:         fmt.Sprintf("%d", o.ID), 
+		        Text:       o.Text, 
+		        VotesCount: o.VotesCount,
+		        ImageURL:   o.ImageURL, // <--- MAPEA EL CAMPO DE LA DB AQUÍ
+		    }
 		}
+// ...
 
 		output[i] = PollOutput{
 			ID:               fmt.Sprintf("%d", p.ID),
@@ -327,13 +335,10 @@ type CreatePollRequest struct {
 }
 
 type CreatePollInput struct {
-    // Los campos de texto en multipart se reciben como campos normales
-    Title   string   `form:"title" doc:"Título de la encuesta"`
-    Options []string `form:"options" doc:"Lista de opciones de texto"`
-    
-    // huma.FormFile permite recibir los binarios
-    // Usamos un slice [] para permitir múltiples imágenes
-    Images  []huma.FormFile `form:"images" doc:"Imágenes correspondientes a cada opción"`
+    // Usamos 'form' para que Huma sepa que vienen en el cuerpo del multipart
+    Title   string          `form:"title" doc:"Título de la encuesta"`
+    Options []string        `form:"options" doc:"Lista de opciones de texto"`
+    Images  []huma.FormFile `form:"images" doc:"Archivos de imagen para las opciones"`
 }
 
 func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*struct{}, error) {
