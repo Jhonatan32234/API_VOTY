@@ -11,21 +11,26 @@ type VoteUpdate struct {
 	NewCount int    `json:"new_count"`
 }
 
+type SocketMessage struct {
+    Event   string      `json:"-"`       // "poll_created", "vote_cast", etc.
+    Payload interface{} `json:"payload"` // El objeto (PollOutput o VoteUpdate)
+}
+
 type Hub struct {
 	// Canales de comunicación
-	Broadcast  chan VoteUpdate
-	Register   chan chan VoteUpdate
-	Unregister chan chan VoteUpdate
-	clients    map[chan VoteUpdate]bool
+	Broadcast  chan SocketMessage
+	Register   chan chan SocketMessage
+	Unregister chan chan SocketMessage
+	clients    map[chan SocketMessage]bool
 	mu         sync.Mutex
 }
 
 func NewHub() *Hub {
 	return &Hub{
-		Broadcast:  make(chan VoteUpdate),
-		Register:   make(chan chan VoteUpdate),
-		Unregister: make(chan chan VoteUpdate),
-		clients:    make(map[chan VoteUpdate]bool),
+		Broadcast:  make(chan SocketMessage),
+		Register:   make(chan chan SocketMessage),
+		Unregister: make(chan chan SocketMessage),
+		clients:    make(map[chan SocketMessage]bool),
 	}
 }
 

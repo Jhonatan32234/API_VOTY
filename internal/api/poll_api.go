@@ -13,21 +13,22 @@ type VoteInput struct {
 }
 
 func (a *UserAPI) PostVote(ctx context.Context, input *VoteInput) (*struct{}, error) {
-	// Obtenemos el ID del usuario desde el JWT (Context)
-	userID := utils.GetUserIDFromContext(ctx)
+    userID := utils.GetUserIDFromContext(ctx)
 
-	newCount, err := a.pollModel.CastVote(ctx, input.PollID, input.OptionID, userID)
-	if err != nil {
-		// Retornamos 403 para que el móvil sepa que debe revertir su estado local
-		return nil, huma.Error403Forbidden("Voto rechazado", err)
-	}
+    newCount, err := a.pollModel.CastVote(ctx, input.PollID, input.OptionID, userID)
+    if err != nil {
+        return nil, huma.Error403Forbidden("Voto rechazado", err)
+    }
 
-	// Si todo salió bien, enviamos el broadcast por el Hub
-	a.Hub.Broadcast <- VoteUpdate{
-		PollID:   input.PollID,
-		OptionID: input.OptionID,
-		NewCount: newCount,
-	}
+    // Enviamos el broadcast con el nombre de evento correcto
+    a.Hub.Broadcast <- SocketMessage{
+        Event: "vote_cast", 
+        Payload: VoteUpdate{
+            PollID:   input.PollID,
+            OptionID: input.OptionID,
+            NewCount: newCount,
+        },
+    }
 
-	return nil, nil
+    return nil, nil
 }

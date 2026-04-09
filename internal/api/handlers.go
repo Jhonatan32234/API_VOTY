@@ -217,28 +217,28 @@ func (a *UserAPI) ListPolls(ctx context.Context, input *struct{}) (*ListPollsRes
 }
 
 func (a *UserAPI) SubscribeVotes(w http.ResponseWriter, r *http.Request) {
-	conn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
-	}
+    conn, err := upgrader.Upgrade(w, r, nil)
+    if err != nil {
+        return
+    }
 
-	// Canal local para este cliente específico
-	clientChan := make(chan VoteUpdate)
-	a.Hub.Register <- clientChan
+    // CORRECCIÓN: El canal debe ser del tipo que espera el Hub (SocketMessage)
+    clientChan := make(chan SocketMessage) 
+    a.Hub.Register <- clientChan
 
-	// Asegurar limpieza al desconectar
-	defer func() {
-		a.Hub.Unregister <- clientChan
-		conn.Close()
-	}()
+    defer func() {
+        a.Hub.Unregister <- clientChan
+        conn.Close()
+    }()
 
-	// Escuchar actualizaciones del Hub y enviarlas al móvil
-	for update := range clientChan {
-		err := conn.WriteJSON(update)
-		if err != nil {
-			break // Si falla la escritura (ej: el móvil perdió señal), cerramos
-		}
-	}
+    for update := range clientChan {
+        // CORRECCIÓN: No enviamos todo el objeto SocketMessage (que tiene el campo Event),
+        // enviamos solo el Payload para que coincida con lo que espera el JSON de la App.
+        err := conn.WriteJSON(update.Payload) 
+        if err != nil {
+            break 
+        }
+    }
 }
 
 type DeviceTokenRequest struct {
@@ -312,33 +312,69 @@ type CreatePollRequest struct {
 }
 
 func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollRequest) (*struct{}, error) {
-	// 1. Crear la encuesta
-	p, err := a.pollModel.Create(ctx, input.Body.Title)
-	if err != nil {
-		return nil, huma.Error500InternalServerError("Error al crear la encuesta", err)
+    // 1. Crear la encuesta
+    p, err := a.pollModel.Create(ctx, input.Body.Title)
+    if err != nil {
+        return nil, huma.Error500InternalServerError("Error al crear la encuesta", err)
+    }
+
+    // 2. Crear las opciones
+    for _, optText := range input.Body.Options {
+        if err := a.pollModel.AddOption(ctx, fmt.Sprintf("%d", p.ID), optText); err != nil {
+            return nil, huma.Error500InternalServerError("Error al crear las opciones", err)
+        }
+    }
+
+    // 3. Obtener la encuesta completa (PollOutput) para el WebSocket
+    // En lugar de llamar a GetByID que no existe, usamos los datos que ya tenemos
+	// Construimos un objeto que coincida con lo que tu App Android llama "PollOutput"
+	// En tu backend Go:
+	var optionsOutput []map[string]interface{}
+	for i, optText := range input.Body.Options {
+	    optionsOutput = append(optionsOutput, map[string]interface{}{
+	        "id":          fmt.Sprintf("%d", i+1), // Un ID temporal o el real de la DB
+	        "text":        optText,
+	        "votes_count": 0,
+	    })
 	}
 
-	// 2. Crear las opciones
-	for _, optText := range input.Body.Options {
-		if err := a.pollModel.AddOption(ctx, fmt.Sprintf("%d", p.ID), optText); err != nil {
-			return nil, huma.Error500InternalServerError("Error al crear las opciones", err)
-		}
+	fullPoll := map[string]interface{}{
+	    "id":         fmt.Sprintf("%d", p.ID),
+	    "title":      p.Title,
+	    "options":    optionsOutput,
+	    "voted":      false,
+	    "is_open":    true,
 	}
-
-	// Notificar a todos los usuarios de la nueva encuesta
+	
+	// Notificar por WebSocket
 	go func() {
-		tokens, _ := a.deviceModel.GetAllTokens(context.Background())
-		notificationData := map[string]string{
-			"type":    "NEW_POLL",
-			"poll_id": fmt.Sprintf("%d", p.ID),
-		}
-		for _, token := range tokens {
-			// Pass the new notificationData map
-			a.sendPushNotification(context.Background(), token, "¡Nueva Encuesta!", input.Body.Title, notificationData)
-		}
+	    a.Hub.Broadcast <- SocketMessage{
+	        Event:   "poll_created",
+	        Payload: fullPoll, 
+	    }
 	}()
 
-	return nil, nil
+    // --- NUEVO: Notificación WebSocket ---
+    go func() {
+        a.Hub.Broadcast <- SocketMessage{
+            Event:   "poll_created", // Coincide con socket.on("poll_created")
+            Payload: fullPoll,       // Lo que recibe gson.fromJson(data, PollOutput::class.java)
+        }
+    }()
+
+    // 4. Notificaciones Push (se mantiene igual)
+    go func() {
+        tokens, _ := a.deviceModel.GetAllTokens(context.Background())
+        notificationData := map[string]string{
+            "type":    "NEW_POLL",
+            "poll_id": fmt.Sprintf("%d", p.ID),
+        }
+        for _, token := range tokens {
+            a.sendPushNotification(context.Background(), token, "¡Nueva Encuesta!", input.Body.Title, notificationData)
+        }
+    }()
+
+    return nil, nil
 }
 func (a *UserAPI) CreateUser(ctx context.Context, req *CreateUserRequest) (*UserResponse, error) {
 	input := models.UserInput{
