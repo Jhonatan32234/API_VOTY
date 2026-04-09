@@ -341,7 +341,18 @@ type CreatePollInput struct {
     Images  []huma.FormFile `form:"images" doc:"Archivos de imagen para las opciones"`
 }
 
-func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*struct{}, error) {
+type PollResponse struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
+}
+
+
+func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*PollResponse, error) {
+	fmt.Printf("TITULO RECIBIDO: %s\n", input.Title)
+	fmt.Printf("NUMERO DE OPCIONES: %d\n", len(input.Options))
+	for i, opt := range input.Options {
+	    fmt.Printf("OPCION %d: %s\n", i, opt)
+	}
     // 1. Crear la cabecera
     p, err := a.pollModel.Create(ctx, input.Title)
     if err != nil {
@@ -435,7 +446,10 @@ for i, optText := range input.Options {
         }
     }()
 
-    return nil, nil
+    return &PollResponse{
+        ID:    fmt.Sprintf("%d", p.ID),
+        Title: p.Title,
+    }, nil
 }
 
 
@@ -615,7 +629,7 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
     Tags:        []string{"Voting"},
     Security:    []map[string][]string{{"bearerAuth": {}}},
     Middlewares: huma.Middlewares{AuthMiddleware(app)},
-}, func(ctx context.Context, input *CreatePollInput) (*struct{}, error) {
+}, func(ctx context.Context, input *CreatePollInput) (*PollResponse, error) {
     // Aquí llamas a la lógica de tu userAPI.CreatePoll pasando el input
     return userAPI.CreatePoll(ctx, input)
 })
