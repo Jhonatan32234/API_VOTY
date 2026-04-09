@@ -256,7 +256,7 @@ func (a *UserAPI) UpdateDeviceToken(ctx context.Context, input *DeviceTokenReque
 	return nil, nil
 }
 
-func (a *UserAPI) sendPushNotification(ctx context.Context, targetToken, title, body string) {
+func (a *UserAPI) sendPushNotification(ctx context.Context, targetToken, title, body string, data map[string]string) {
 	if a.fcmClient == nil {
 		return
 	}
@@ -265,6 +265,7 @@ func (a *UserAPI) sendPushNotification(ctx context.Context, targetToken, title, 
 			Title: title,
 			Body:  body,
 		},
+		Data:  data, // Add the data payload
 		Token: targetToken,
 	}
 	_, err := a.fcmClient.Send(ctx, message)
@@ -327,8 +328,13 @@ func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollRequest) (*st
 	// Notificar a todos los usuarios de la nueva encuesta
 	go func() {
 		tokens, _ := a.deviceModel.GetAllTokens(context.Background())
+		notificationData := map[string]string{
+			"type":    "NEW_POLL",
+			"poll_id": fmt.Sprintf("%d", p.ID),
+		}
 		for _, token := range tokens {
-			a.sendPushNotification(context.Background(), token, "¡Nueva Encuesta!", input.Body.Title)
+			// Pass the new notificationData map
+			a.sendPushNotification(context.Background(), token, "¡Nueva Encuesta!", input.Body.Title, notificationData)
 		}
 	}()
 
