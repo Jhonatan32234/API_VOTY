@@ -363,6 +363,9 @@ func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*Poll
 	fmt.Printf("TITULO RECIBIDO: %s\n", input.Title)
 	fmt.Printf("NUMERO DE OPCIONES: %d\n", len(input.Options))
 	const uploadBase = "/app/uploads"
+	if len(input.Options) == 1 && strings.Contains(input.Options[0], ",") {
+        input.Options = strings.Split(input.Options[0], ",")
+    }
 	if len(input.Images) == 0 {
         // Extraemos el request que guardamos en el Middleware
         if r, ok := ctx.Value(requestKey).(*http.Request); ok && r.MultipartForm != nil {
@@ -379,7 +382,7 @@ func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*Poll
             }
         }
     }
-
+	fmt.Printf("NUMERO DE OPCIONES REPROCESADAS: %d\n", len(input.Options))
     fmt.Printf("CANTIDAD FINAL DE IMÁGENES: %d\n", len(input.Images))
 	for i, opt := range input.Options {
 	    fmt.Printf("OPCION %d: %s\n", i, opt)
