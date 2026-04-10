@@ -35,7 +35,6 @@ services:
       timeout: 5s
       retries: 10
     # Usamos mysql_native_password para asegurar compatibilidad con el driver de Go
-    command: --default-authentication-plugin=mysql_native_password
-
+    command: --default-authentication-plugin=mysql_native_password --net_read_timeout=60 --net_write_timeout=60
 volumes:
   mysql_data:

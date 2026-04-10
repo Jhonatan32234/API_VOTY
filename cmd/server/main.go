@@ -74,6 +74,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("No se pudo conectar a la base de datos tras varios intentos: %v", err)
 	}
+	// ... después de conectar con éxito ...
+	db.SetMaxIdleConns(10)           // Conexiones inactivas máximas
+	db.SetMaxOpenConns(100)          // Conexiones totales máximas
+	db.SetConnMaxLifetime(time.Hour) // Tiempo de vida máximo
+
 	drv := entsql.OpenDB(dialect.MySQL, db)
 	client := ent.NewClient(ent.Driver(drv))
 	defer client.Close()
