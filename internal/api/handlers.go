@@ -362,6 +362,7 @@ func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*Poll
 	fmt.Printf("Contexto: %+v\n", ctx)
 	fmt.Printf("TITULO RECIBIDO: %s\n", input.Title)
 	fmt.Printf("NUMERO DE OPCIONES: %d\n", len(input.Options))
+	const uploadBase = "/app/uploads"
 	if len(input.Images) == 0 {
         // Extraemos el request que guardamos en el Middleware
         if r, ok := ctx.Value(requestKey).(*http.Request); ok && r.MultipartForm != nil {
@@ -393,7 +394,7 @@ func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*Poll
     var imageUrlsForPush []string
 
     // Asegurémonos de que el directorio existe (importante en Docker)
-    os.MkdirAll("uploads", os.ModePerm)
+    os.MkdirAll(uploadBase, 0755)
 
     // 2. Procesar opciones e imágenes en un solo bucle
     for i, optText := range input.Options {
@@ -408,8 +409,7 @@ func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*Poll
             ext := filepath.Ext(formFile.Filename)
             if ext == "" { ext = ".png" } // Fallback por si no viene extensión
             fileName := fmt.Sprintf("poll_%d_opt_%d_%d%s", p.ID, i, time.Now().Unix(), ext)
-            fullPath := filepath.Join("uploads", fileName)
-
+			fullPath := filepath.Join(uploadBase, fileName) // <--- RUTA ABSOLUTA
             // 2. Crear el destino en disco
             out, err := os.Create(fullPath)
             if err != nil {
