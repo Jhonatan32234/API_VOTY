@@ -121,14 +121,18 @@ func main() {
 
 	mux := http.NewServeMux()
 
+	fs := http.FileServer(http.Dir("./uploads"))
+	mux.Handle("/uploads/", http.StripPrefix("/uploads/", fs))
+
 	api.SetupRoutes(mux, userAPI, authAPI)
+
+	handlerConMultipart := api.MultipartMiddleware(mux) // Asegúrate de que MultipartMiddleware sea exportable (nombre en mayúscula)
 
 	port := ":8000"
 	log.Printf("Servidor iniciado en http://localhost%s", port)
 	log.Printf("Documentación disponible en http://localhost%s/docs", port)
 
-	if err := http.ListenAndServe(port, mux); err != nil {
-		log.Fatal(err)
-	}
-	http.Handle("/uploads/", http.StripPrefix("/uploads/", http.FileServer(http.Dir("uploads"))))
+	if err := http.ListenAndServe(port, handlerConMultipart); err != nil {
+    log.Fatal(err)
+}
 }

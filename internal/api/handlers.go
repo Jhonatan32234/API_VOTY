@@ -326,19 +326,13 @@ func (a *UserAPI) TestFCM(ctx context.Context, input *struct{}) (*TestFCMRespons
 	return resp, nil
 }
 
-// Estructura para recibir los datos
-type CreatePollRequest struct {
-	Body struct {
-		Title   string   `json:"title" doc:"Título de la encuesta" example:"¿Cuál es el mejor lenguaje?"`
-		Options []string `json:"options" doc:"Lista de opciones" example:"[\"Go\", \"Kotlin\"]"`
-	}
-}
 
 type CreatePollInput struct {
-    // Usamos 'form' para que Huma sepa que vienen en el cuerpo del multipart
-    Title   string          `form:"title" doc:"Título de la encuesta"`
-    Options []string        `form:"options" doc:"Lista de opciones de texto"`
-    Images  []huma.FormFile `form:"images" doc:"Archivos de imagen para las opciones"`
+    // Cambiamos el tag a 'query' para forzar a Huma a leer de la URL
+    Title   string          `query:"title" doc:"Título"`
+    Options []string        `query:"options" doc:"Opciones"`
+    // El cuerpo solo se usará para los archivos
+    Images  []huma.FormFile `form:"images"` 
 }
 
 type PollResponse struct {
@@ -346,10 +340,46 @@ type PollResponse struct {
 	Title string `json:"title"`
 }
 
+func MultipartMiddleware(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/polls") {
+            // 1. Parseamos el multipart
+            r.ParseMultipartForm(32 << 20)
+            
+            // 2. Inyectamos el request en el contexto y seguimos
+            ctx := context.WithValue(r.Context(), requestKey, r)
+            next.ServeHTTP(w, r.WithContext(ctx))
+            return
+        }
+        next.ServeHTTP(w, r)
+    })
+}
+
+type contextKey string
+const requestKey contextKey = "original_request"
 
 func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*PollResponse, error) {
+	fmt.Printf("Contexto: %+v\n", ctx)
 	fmt.Printf("TITULO RECIBIDO: %s\n", input.Title)
 	fmt.Printf("NUMERO DE OPCIONES: %d\n", len(input.Options))
+	if len(input.Images) == 0 {
+        // Extraemos el request que guardamos en el Middleware
+        if r, ok := ctx.Value(requestKey).(*http.Request); ok && r.MultipartForm != nil {
+            // Buscamos los archivos con el nombre "images" (el que usas en el CURL)
+            files := r.MultipartForm.File["images"]
+            for _, f := range files {
+                opened, err := f.Open()
+                if err == nil {
+                    input.Images = append(input.Images, huma.FormFile{
+                        File:     opened,
+                        Filename: f.Filename,
+                    })
+                }
+            }
+        }
+    }
+
+    fmt.Printf("CANTIDAD FINAL DE IMÁGENES: %d\n", len(input.Images))
 	for i, opt := range input.Options {
 	    fmt.Printf("OPCION %d: %s\n", i, opt)
 	}
@@ -362,53 +392,55 @@ func (a *UserAPI) CreatePoll(ctx context.Context, input *CreatePollInput) (*Poll
     var optionsOutput []map[string]interface{}
     var imageUrlsForPush []string
 
-    // 2. Procesar opciones e imágenes
+    // Asegurémonos de que el directorio existe (importante en Docker)
+    os.MkdirAll("uploads", os.ModePerm)
+
+    // 2. Procesar opciones e imágenes en un solo bucle
     for i, optText := range input.Options {
         var imagePath string
 
-        // Verificar si hay una imagen para este índice
-        // ... dentro del bucle de input.Images
-for i, optText := range input.Options {
-	print(optText)
-    var imagePath string
+        // Verificamos si hay una imagen para esta opción específica (por índice)
+        if i < len(input.Images) {
+			fmt.Printf("¡DETECTADA IMAGEN! Nombre: %s\n", input.Images[i].Filename) // <--- AÑADE ESTO
+            formFile := input.Images[i]
 
-    if i < len(input.Images) {
-        formFile := input.Images[i]
+            // 1. Generar nombre único
+            ext := filepath.Ext(formFile.Filename)
+            if ext == "" { ext = ".png" } // Fallback por si no viene extensión
+            fileName := fmt.Sprintf("poll_%d_opt_%d_%d%s", p.ID, i, time.Now().Unix(), ext)
+            fullPath := filepath.Join("uploads", fileName)
 
-        // 1. Generar nombre único usando el campo Filename que se ve en tu imagen
-        ext := filepath.Ext(formFile.Filename)
-        fileName := fmt.Sprintf("poll_%d_opt_%d_%d%s", p.ID, i, time.Now().Unix(), ext)
-        fullPath := filepath.Join("uploads", fileName)
+            // 2. Crear el destino en disco
+            out, err := os.Create(fullPath)
+            if err != nil {
+                return nil, huma.Error500InternalServerError("Error creando archivo local", err)
+            }
+			
 
-        // 2. Crear el destino en disco
-        out, err := os.Create(fullPath)
-        if err != nil {
-            return nil, huma.Error500InternalServerError("Error creando archivo local", err)
-        }
+            // 3. COPIAR Y CERRAR
+            _, err = io.Copy(out, formFile)
+            out.Close()      // Cerrar destino
+            formFile.Close() // Cerrar origen (huma.FormFile implementa io.Closer)
 
-        // 3. COPIAR DIRECTAMENTE
-        // Como formFile tiene el método Read, puedes pasarlo directamente a io.Copy
-        _, err = io.Copy(out, formFile)
-        
-        // Es vital cerrar el archivo de salida y el formFile (que tiene el método Close)
-        out.Close()
-        formFile.Close() 
+            if err != nil {
+                return nil, huma.Error500InternalServerError("Error escribiendo imagen", err)
+            }
 
-        if err != nil {
-            return nil, huma.Error500InternalServerError("Error escribiendo imagen", err)
-        }
+			
+            // URL pública (asegúrate de que el servidor sirve la carpeta /uploads)
+            imagePath = "https://apivoty.jhonatanzc.fun/uploads/" + fileName
+            imageUrlsForPush = append(imageUrlsForPush, imagePath)
+        }else {
+		    fmt.Printf("No se detectó imagen para la opción %d. Total imágenes: %d\n", i, len(input.Images))
+		}
 
-        imagePath = "https://apivoty.jhonatanzc.fun/uploads/" + fileName
-        imageUrlsForPush = append(imageUrlsForPush, imagePath)
-    }
-}
-        // Guardar en DB
+        // 3. Guardar en DB la opción con su respectiva imagen (o vacío si no hubo)
         _ = a.pollModel.AddOption(ctx, fmt.Sprintf("%d", p.ID), optText, imagePath)
 
         optionsOutput = append(optionsOutput, map[string]interface{}{
             "id":          fmt.Sprintf("%d", i+1),
             "text":        optText,
-            "image_url":   imagePath,
+            "image_url":   imagePath, // <--- Ahora sí debería aparecer en el GET
             "votes_count": 0,
         })
     }
@@ -516,20 +548,31 @@ func (a *UserAPI) DeleteUser(ctx context.Context, req *DeleteUserRequest) (*stru
 }
 
 func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
-	config := huma.DefaultConfig("User CRUD API", "1.0.0")
-	config.DocsPath = "/docs"
-	config.OpenAPIPath = "/openapi.json"
+    config := huma.DefaultConfig("User CRUD API", "1.0.0")
+    config.DocsPath = "/docs"
+    config.OpenAPIPath = "/openapi.json"
 
-	config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
-		"bearerAuth": {
-			Type:         "http",
-			Scheme:       "bearer",
-			BearerFormat: "JWT",
-			Description:  "Ingresa tu token JWT en el formato: Bearer <token>",
-		},
-	}
+	config.Formats["multipart/form-data"] = huma.Format{
+        Marshal: func(w io.Writer, v any) error {
+            return nil
+        },
+        Unmarshal: func(data []byte, v any) error {
+            // No hacemos nada con los bytes, esto solo "registra" el tipo 
+            // para que Huma no lance el error 415.
+            return nil
+        },
+    }
+	
+    config.Components.SecuritySchemes = map[string]*huma.SecurityScheme{
+        "bearerAuth": {
+            Type:         "http",
+            Scheme:       "bearer",
+            BearerFormat: "JWT",
+            Description:  "Ingresa tu token JWT en el formato: Bearer <token>",
+        },
+    }
 
-	app := humago.New(router, config)
+    app := humago.New(router, config)
 
 	huma.Register(app, huma.Operation{
 		OperationID: "register",
@@ -625,12 +668,26 @@ func SetupRoutes(router *http.ServeMux, userAPI *UserAPI, authAPI *AuthAPI) {
     Method:      http.MethodPost,
     Path:        "/polls",
     Summary:     "Crear una nueva encuesta",
-    Description: "Crea una encuesta con texto e imágenes mediante multipart/form-data.",
     Tags:        []string{"Voting"},
     Security:    []map[string][]string{{"bearerAuth": {}}},
     Middlewares: huma.Middlewares{AuthMiddleware(app)},
+	RequestBody: &huma.RequestBody{
+        Content: map[string]*huma.MediaType{
+            "multipart/form-data": {
+                Schema: &huma.Schema{
+                    Type: "object",
+                    Properties: map[string]*huma.Schema{
+                        "images": {
+                            Type: "array",
+                            Items: &huma.Schema{Type: "string", Format: "binary"},
+                        },
+                    },
+                },
+            },
+        },
+    },
 }, func(ctx context.Context, input *CreatePollInput) (*PollResponse, error) {
-    // Aquí llamas a la lógica de tu userAPI.CreatePoll pasando el input
+    fmt.Printf("¡POR FIN! Título: %s, Opciones: %v\n", input.Title, input.Options)
     return userAPI.CreatePoll(ctx, input)
 })
 
